@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>NodeNGW - Soft-body Driving Sandbox</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #8fb8e0; font-family: system-ui, sans-serif; color: #fff; user-select: none; -webkit-user-select: none; touch-action: none; }
+  canvas { display: block; }
+  #hud { position: fixed; left: 16px; top: 14px; text-shadow: 0 1px 4px #000a; pointer-events: none; }
+  #hud .big { font-size: 42px; font-weight: 700; line-height: 1; }
+  #hud .big small { font-size: 16px; font-weight: 400; opacity: .85; }
+  #hud .row { margin-top: 8px; font-size: 14px; }
+  #bar { width: 160px; height: 8px; background: #0006; border-radius: 4px; margin-top: 4px; overflow: hidden; }
+  #dmgbar { height: 100%; width: 0; background: linear-gradient(90deg, #ffd23f, #e63946); }
+  #help { position: fixed; right: 14px; top: 14px; font-size: 12px; line-height: 1.6; text-align: right; background: #0007; padding: 8px 12px; border-radius: 8px; pointer-events: none; }
+  #help b { background: #fff3; padding: 1px 6px; border-radius: 4px; font-weight: 600; }
+  #tb { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 8px; }
+  #tb button, .pad button { background: #000a; color: #fff; border: 1px solid #fff4; border-radius: 10px; padding: 8px 14px; font-size: 14px; }
+  .pad { position: fixed; bottom: 14px; display: none; gap: 10px; }
+  .pad.l { left: 14px; } .pad.r { right: 14px; flex-direction: column; }
+  .pad button { width: 76px; height: 76px; font-size: 26px; }
+  @media (pointer: coarse) { .pad { display: flex; } #help { display: none; } }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div class="big"><span id="speed">0</span> <small>km/h</small></div>
+  <div class="row">Damage <span id="dmg">0%</span> &middot; Snapped beams <span id="brk">0</span></div>
+  <div id="bar"><div id="dmgbar"></div></div>
+</div>
+<div id="help">
+  <b>W/S</b> or <b>&uarr;/&darr;</b> gas / brake / reverse<br>
+  <b>A/D</b> or <b>&larr;/&rarr;</b> steer &middot; <b>Space</b> handbrake<br>
+  <b>R</b> reset upright &middot; <b>T</b> back to start<br>
+  <b>C</b> camera &middot; <b>B</b> beam view &middot; <b>V</b> slow-mo
+</div>
+<div id="tb"><button id="btnReset">Reset (R)</button><button id="btnCam">Camera (C)</button></div>
+<div class="pad l"><button data-t="left">&#9664;</button><button data-t="right">&#9654;</button></div>
+<div class="pad r"><button data-t="up">GAS</button><button data-t="down">BRK</button><button data-t="hand" style="height:46px">HB</button></div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module" src="./main.js"></script>
+</body>
+</html>

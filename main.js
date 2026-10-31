@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Car, VEHICLES, OBSTACLES, TREES, BALLS, RAMPS, terrainHeight, onRamp, resetBalls, WORLD_HALF } from './physics.js';
+import { Car, VEHICLES, OBSTACLES, TREES, BALLS, RAMPS, terrainHeight, onRamp, resetBalls, WORLD_HALF, st as stn } from './physics.js';
 import { Particles, Skids } from './fx.js';
 
 // ------------------------------------------------------------ settings
@@ -22,7 +22,7 @@ renderer.domElement.style.touchAction = 'none';
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xbcd8f0, 110, 330);
-const camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.1, 700);
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 700);
 scene.add(camera);
 
 const hemi = new THREE.HemisphereLight(0xdfeeff, 0x556644, 1.0);
@@ -154,7 +154,6 @@ const skids = new Skids(scene);
 // ------------------------------------------------------------ car visuals
 let car, body, bodyGeo, bodyMat, triIdx, triKind, baseCol, wheelGroups = [], lines, lineGeo;
 let headMeshes = [], tailMeshes = [], headLights = [];
-const ni = (zi, xi, yi) => zi * 4 + xi * 2 + yi;
 const GLASS = [0.08, 0.13, 0.18], DARK = [0.06, 0.06, 0.07];
 let showBeams = false;
 
@@ -260,11 +259,11 @@ function updateVisuals() {
 
   // lamps follow the deforming bodywork
   for (let side = 0; side < 2; side++) {
-    const h = nodePos(ni(3, side, 1)).lerp(nodePos(ni(3, 1 - side, 1)), 0.28).addScaledVector(up, -0.17).addScaledVector(fwd, 0.04);
+    const h = nodePos(stn(9, side ? 4 : 1)).lerp(nodePos(stn(9, side ? 1 : 4)), 0.28).addScaledVector(up, -0.02).addScaledVector(fwd, 0.04);
     headMeshes[side].position.copy(h);
     headLights[side].position.copy(h);
     headLights[side].target.position.copy(h).addScaledVector(fwd, 12).addScaledVector(up, -1.2);
-    const t = nodePos(ni(0, side, 1)).lerp(nodePos(ni(0, 1 - side, 1)), 0.28).addScaledVector(up, -0.2).addScaledVector(fwd, -0.04);
+    const t = nodePos(stn(0, side ? 4 : 1)).lerp(nodePos(stn(0, side ? 1 : 4)), 0.28).addScaledVector(up, 0.02).addScaledVector(fwd, -0.04);
     tailMeshes[side].position.copy(t);
     const mat = tailMeshes[side].material;
     mat.color.set(car.braking > 0.1 ? 0xff2a2a : car.reverse ? 0xffffff : 0x701010);
@@ -295,9 +294,9 @@ function updateFx(dt, inp) {
     if (w.grounded && w.skid > 0.25) {
       const lx = fwdL[0] * 0.14, lz = fwdL[2] * 0.14;
       skids.add(k, x, y + 0.03, z, lx, lz);
-      for (let i = 0; i < 2; i++) particles.emit(x, y + 0.1, z, (Math.random() - 0.5) * 1.5, 0.8 + Math.random(), (Math.random() - 0.5) * 1.5, 1.4, 0.9, 3.5, 0.8, 0.8, 0.82, 0.45 * Math.min(1, w.skid + 0.3), 0.6);
+      if (w.skid > 0.5 && Math.random() < dt * 25) particles.emit(x, y + 0.1, z, (Math.random() - 0.5) * 1.0, 0.5 + Math.random() * 0.5, (Math.random() - 0.5) * 1.0, 0.9, 0.55, 2.5, 0.8, 0.8, 0.82, 0.22, 0.4);
     } else skids.stop(k);
-    if (w.grounded && rim && car.speed > 4 && Math.random() < Math.min(1, dt * 40)) {
+    if (w.grounded && rim && car.speed > 8 && Math.random() < Math.min(1, dt * 15)) {
       particles.emit(x, y + 0.1, z, (Math.random() - 0.5) * 2, 0.7 + Math.random(), (Math.random() - 0.5) * 2, 1.2, 0.7, 3, 0.55, 0.45, 0.32, 0.35, 0.4);
     }
   });
@@ -306,11 +305,11 @@ function updateFx(dt, inp) {
   }
   const dmg = car.damage;
   if (dmg > 30 && Math.random() < Math.min(1, dt * (dmg - 20) * 0.6)) {
-    const p = nodePos(ni(3, 0, 1)).lerp(nodePos(ni(2, 1, 1)), 0.5);
+    const p = nodePos(stn(8, 2)).lerp(nodePos(stn(8, 3)), 0.5);
     particles.emit(p.x, p.y + 0.2, p.z, (Math.random() - 0.5) * 0.6, 1.8 + Math.random(), (Math.random() - 0.5) * 0.6, 2.2, 0.6, 4, 0.25, 0.25, 0.27, 0.5, 0.3);
   }
   if (dmg > 70 && Math.random() < dt * 40) {
-    const p = nodePos(ni(3, 0, 1)).lerp(nodePos(ni(2, 1, 1)), 0.5);
+    const p = nodePos(stn(8, 2)).lerp(nodePos(stn(8, 3)), 0.5);
     particles.emit(p.x, p.y + 0.15, p.z, (Math.random() - 0.5) * 0.8, 2 + Math.random() * 1.5, (Math.random() - 0.5) * 0.8, 0.7, 0.55, -0.4, 1, 0.5 + Math.random() * 0.3, 0.1, 0.8, 1.5);
   }
   particles.update(dt);
@@ -320,7 +319,7 @@ function updateFx(dt, inp) {
 const keys = {};
 const touch = { up: 0, down: 0, left: 0, right: 0, hand: 0 };
 let camMode = 0, slow = false, paused = true;
-let mouseCam = false, orbYaw = 0, orbPitch = 0.28, orbDist = 9, dragging = false, headSm = 0;
+let mouseCam = true, orbYaw = 0, orbPitch = 0.28, orbDist = 9, dragging = false, headSm = 0;
 
 function toast(msg) {
   const t = document.getElementById('toast'); t.textContent = msg; t.style.opacity = 1;
@@ -562,15 +561,16 @@ el('drive').onclick = () => {
 };
 
 // ------------------------------------------------------------ camera
+setTimeout(() => setMouseCam(true), 0);
 const camPos = new THREE.Vector3(0, 6, -12), camLook = new THREE.Vector3();
-let shake = 0, fov = 65;
+
 function updateCamera(dt) {
   const c = car.com, cc = V(c), fwd = V(car.fwd);
   const fl = new THREE.Vector3(fwd.x, 0, fwd.z).normalize();
   const k = 1 - Math.exp(-dt * 4);
   const heading = Math.atan2(fl.x, fl.z);
   if (!mouseCam && camMode === 1) {          // bonnet / driver
-    const p = new THREE.Vector3((car.px[18] + car.px[19]) / 2, (car.py[18] + car.py[19]) / 2 - 0.1, (car.pz[18] + car.pz[19]) / 2);
+    const a1 = stn(5, 2), a2 = stn(5, 3), p = new THREE.Vector3((car.px[a1] + car.px[a2]) / 2, (car.py[a1] + car.py[a2]) / 2 - 0.18, (car.pz[a1] + car.pz[a2]) / 2);
     camera.position.copy(p); camera.lookAt(p.clone().addScaledVector(fwd, 10));
     camPos.copy(p); camLook.copy(p); headSm = heading;
   } else if (mouseCam) {                     // free orbit with the mouse
@@ -596,11 +596,6 @@ function updateCamera(dt) {
     camPos.lerp(target, 1 - Math.exp(-dt * 1.5));
     camera.position.copy(camPos); camera.lookAt(cc); camLook.copy(cc); headSm = heading;
   }
-  shake = Math.max(0, shake - dt * 1.8);
-  if (shake > 0.002) camera.position.add(new THREE.Vector3((Math.random() - 0.5), (Math.random() - 0.5), (Math.random() - 0.5)).multiplyScalar(shake));
-  const wantFov = 62 + Math.min(18, car.speed * 0.33);
-  fov += (wantFov - fov) * Math.min(1, dt * 3);
-  if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
   particles.mat.uniforms.scale.value = renderer.getPixelRatio() * innerHeight / (2 * Math.tan(camera.fov * Math.PI / 360));
 }
 
@@ -619,7 +614,7 @@ function frame(now) {
     const inp = readInput();
     car.plastic = 0;
     car.advance(dt * (slow ? 0.2 : 1), inp);
-    if (car.plastic > 0.01) { crunch(car.plastic); shake = Math.min(0.5, shake + car.plastic * 2.5); }
+    if (car.plastic > 0.01) { crunch(car.plastic); }
     const c = car.com;
     if (Math.abs(c[0]) > WORLD_HALF || Math.abs(c[2]) > WORLD_HALF || c[1] < -30) car.reset(0, 0, 0);
     updateFx(dt * (slow ? 0.2 : 1), inp);

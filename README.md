@@ -3,14 +3,14 @@
 A BeamNG-style soft-body driving sandbox that runs entirely in the browser (plain HTML + JavaScript + [Three.js](https://threejs.org) from a CDN). No build step, so it works as-is on GitHub Pages.
 
 ## Features
-- **Soft-body physics** (`physics.js`): every vehicle is ~24 mass points joined by ~200 springs, simulated at 600 Hz. Squashed beams stay dented, stretched beams snap, suspension can be torn off, and the bodywork darkens and the glass cracks where it is damaged.
+- **BeamNG-style soft-body physics** (`physics.js`): every vehicle is 66 mass points (10 body cross-sections, engine, fuel tank, 4 hubs) joined by 416 springs, simulated at 1500 Hz. Beams yield plastically and harden as they crush, so the front and rear crumple (about 0.5 m at 60 km/h, ~1.8 m at 100 km/h) while the passenger cell holds. Stretched beams snap, suspension can tear off, and the bodywork darkens and the glass whitens where it is damaged.
 - **3 vehicles**: Sedan (RWD), Pickup (AWD, heavy), Coupe (light and fast), plus 7 paint colours.
 - **Automatic gearbox** with RPM, gear display, rev limiter, and engine / tyre-squeal / wind / crash sound.
 - **World**: ramps, a big jump, a skyline plateau drop, speed bumps, a mound, slalom pillars, crates, a crash wall, trees, and pushable balls.
 - **Effects**: dust, tyre smoke, sparks, engine smoke and fire, skid marks, camera shake, speed FOV, headlights and brake lights.
 - **Day / sunset / night**.
 - **HUD**: speedo + rpm gauge, gear, damage meter and repair cost, jump distance and air time (best saved in your browser), minimap.
-- **Cameras**: chase, bonnet, far, and a **mouse camera** (drag to orbit, scroll to zoom).
+- **Cameras**: mouse orbit camera on by default (drag to orbit, scroll to zoom, M or the button to toggle), plus chase, bonnet and far. No shake or zoom effects.
 - Keyboard, touch buttons and gamepad.
 
 ## Controls

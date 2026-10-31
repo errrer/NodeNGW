@@ -120,7 +120,8 @@ export const st = (s, k) => s * RING + k;
 export const HUB = NR;                // 72..75: FL FR RL RR
 export const ENG = NR + 4;            // 76
 export const FUEL = NR + 5;           // 77
-export const NCH = NR + 6;            // first panel node
+export const CORE = NR + 6;           // 78..89: one centre-line spine node per station (anchors for panels, stiffens the frame)
+export const NCH = CORE + NSTA;       // first panel node
 
 // per-vehicle data. Arrays are per station (rear -> front).
 export const VEHICLES = {
@@ -225,6 +226,7 @@ export class Car {
     }
     addNode(0, (YF[10] + YB[10]) / 2 + 0.05, (Z[9] + Z[10]) / 2, d.mEng);
     addNode(0, (YF[1] + YB[1]) / 2, (Z[1] + Z[2]) / 2, d.mFuel);
+    for (let s = 0; s < NSTA; s++) addNode(0, (YF[s] + YB[s]) / 2, Z[s], 1);
 
     // ---------------- panels: separate grids of nodes laid over the chassis skin
     const side = (s, h, sg, off) => {     // point on lower side, fraction h up from floor edge to belt line
@@ -258,14 +260,15 @@ export class Car {
       const x = (c / 4 * 2 - 1) * (WB[end] * 0.98), u = Math.abs(x) / WB[end];
       return [x, YF[end] + (r === 0 ? 0.03 : 0.22), Z[end] + dir * (0.07 - 0.2 * u * u)];
     };
-    addPanel('bumperR', 2, 5, bumper(0, -1), { mass: 11 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02 });
-    addPanel('bumperF', 2, 5, bumper(11, 1), { mass: 12 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02 });
+    addPanel('bumperR', 2, 5, bumper(0, -1), { mass: 11 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 2 });
+    addPanel('bumperF', 2, 5, bumper(11, 1), { mass: 12 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 9 });
 
     const NN = this.NN = NX.length;
     let panelMass = 0;
     for (const p of panelDefs) { p.nodeMass = Math.max(2, p.mass / (p.rows * p.cols)); for (const r of p.idx) for (const i of r) { NM[i] = p.nodeMass; panelMass += p.nodeMass; } }
-    const ringM = (d.mass - d.mEng - d.mFuel - 4 * d.mWheel - panelMass) / NR;
+    const ringM = (d.mass - d.mEng - d.mFuel - 4 * d.mWheel - panelMass) / (NR + NSTA);
     for (let i = 0; i < NR; i++) NM[i] = ringM;
+    for (let s = 0; s < NSTA; s++) NM[CORE + s] = ringM;
     NM[ENG] = d.mEng; NM[FUEL] = d.mFuel;
     this.nodeMass = ringM;
     const lx = this.lx = Float64Array.from(NX), ly = this.ly = Float64Array.from(NY), lz = this.lz = Float64Array.from(NZ);
@@ -311,6 +314,11 @@ export class Car {
       const ys = (YS[s] + YS[s + 2]) / 2;
       for (let i = 0; i < RING; i++) addBody(st(s, i), st(s + 2, i), 0.6, ys);
     }
+    for (let s = 0; s < NSTA; s++) {                       // centre-line spine: triangulates every ring and stiffens the whole frame
+      for (let k = 0; k < RING; k++) addBody(CORE + s, st(s, k), 1, YS[s] * (k === 2 || k === 3 ? 0.8 : 1));
+      if (s < NSTA - 1) addBody(CORE + s, CORE + s + 1, 1.2, (YS[s] + YS[s + 1]) / 2);
+      if (s < NSTA - 2) addBody(CORE + s, CORE + s + 2, 0.6, (YS[s] + YS[s + 2]) / 2);
+    }
     // engine and fuel tank on breakable mounts
     for (const s of [9, 10]) for (let i = 0; i < RING; i++) addW(ENG, st(s, i), 90, 0.2, 0.05, 0.5, 0, 5);
     for (const s of [1, 2]) for (let i = 0; i < RING; i++) addW(FUEL, st(s, i), 90, 0.2, 0.05, 0.5, 0, 5);
@@ -348,26 +356,31 @@ export class Car {
       return cand.slice(0, n).map((c) => c[1]);
     };
     const quads = [];
+    const nearestStation = (z) => { let bs = 0, bd = 1e9; for (let s = 0; s < NSTA; s++) { const dd = Math.abs(Z[s] - z); if (dd < bd) { bd = dd; bs = s; } } return bs; };
     for (const p of panelDefs) {
-      const att = [], nodes = [];
+      const tang = [], back = [], nodes = [];
       for (let r = 0; r < p.rows; r++) for (let c = 0; c < p.cols; c++) {
         const i = p.idx[r][c]; nodes.push(i);
+        // soft backing spring to the centre-line spine: gives every panel node real support normal to the surface
+        // (so panels can't sag like cloth), dents plastically, and snaps when the panel is pulled off
+        const as = p.anchorSt !== undefined ? p.anchorSt : nearestStation(lz[i]);
+        back.push(addW(i, CORE + as, 140, 0.25, 0.06, 0.15, 0, 2));
         const strength = p.att(r, c);
         if (strength > 0) {
           for (const j of nearestRing(i, strength >= 0.65 ? 3 : 2)) {
-            att.push(addW(i, j, 140 * strength, 0.15, 0.03, 0.06 + 0.15 * strength, 0, 2));
+            tang.push(addW(i, j, 140 * strength, 0.15, 0.03, 0.06 + 0.15 * strength, 0, 2));
           }
         }
         // grid beams to right / below / both diagonals
-        if (c + 1 < p.cols) addW(i, p.idx[r][c + 1], 230, 0.12, p.yld, 0.5, 1, 1);
-        if (r + 1 < p.rows) addW(i, p.idx[r + 1][c], 230, 0.12, p.yld, 0.5, 1, 1);
+        if (c + 1 < p.cols) addW(i, p.idx[r][c + 1], 260, 0.3, p.yld, 0.5, 1, 1);
+        if (r + 1 < p.rows) addW(i, p.idx[r + 1][c], 260, 0.3, p.yld, 0.5, 1, 1);
         if (r + 1 < p.rows && c + 1 < p.cols) {
-          addW(i, p.idx[r + 1][c + 1], 200, 0.12, p.yld, 0.5, 1, 1);
-          addW(p.idx[r][c + 1], p.idx[r + 1][c], 200, 0.12, p.yld, 0.5, 1, 1);
+          addW(i, p.idx[r + 1][c + 1], 230, 0.3, p.yld, 0.5, 1, 1);
+          addW(p.idx[r][c + 1], p.idx[r + 1][c], 230, 0.3, p.yld, 0.5, 1, 1);
           quads.push({ q: [i, p.idx[r][c + 1], p.idx[r + 1][c + 1], p.idx[r + 1][c]], col: 'paint', panel: this.panels.length });
         }
       }
-      this.panels.push({ name: p.name, nodes, attach: att, lost: false });
+      this.panels.push({ name: p.name, nodes, attach: back.concat(tang), tang, back, gone: false, lost: false });
     }
     this.faces = chassisFaces(d.bed).concat(quads);
 
@@ -408,7 +421,8 @@ export class Car {
     this.steerAngle = 0; this.acc = 0; this.plastic = 0; this.time = 0;
     this.gear = 1; this.rpm = 900; this.shiftT = 0; this.reverse = false; this.throttle = 0; this.braking = 0;
     this.airborne = false; this.bodyHit = false; this.groundedCount = 0;
-    this.sparks = []; this.breaks = []; this.lostParts = 0;
+    this.sparks = []; this.breaks = []; this.lostParts = 0; this.lostEvents = [];
+    this.dead = new Uint8Array(NN);
     this.nodeDmg = new Float32Array(NN);
     this.nearObs = [];
     this._n = [0, 1, 0]; this._F = [0, 0, 0]; this._tl = 0;
@@ -445,8 +459,9 @@ export class Car {
     }
     this.bL0.set(this.bL00); this.byield.set(this.byield0); this.broken.fill(0); this.strain.fill(0); this.nodeDmg.fill(0);
     for (const sv of this.struts) this.bL0[sv.q] = this.bL00[sv.q];
-    for (const p of this.panels) p.lost = false;
-    this.lostParts = 0; this.breaks.length = 0;
+    for (const p of this.panels) { p.lost = false; p.gone = false; }
+    this.dead.fill(0);
+    this.lostParts = 0; this.breaks.length = 0; this.lostEvents.length = 0;
     this.steerAngle = 0; this.plastic = 0; this.acc = 0; this.gear = 1; this.rpm = 900; this.shiftT = 0;
     for (const w of this.wheels) { w.spin = 0; w.spinVel = 0; w.grounded = false; w.skid = 0; w.alive = true; }
     this.computeFrame();
@@ -471,6 +486,7 @@ export class Car {
     this.up[0] = fy * lz - fz * ly; this.up[1] = fz * lx - fx * lz; this.up[2] = fx * ly - fy * lx;
     let cx = 0, cy = 0, cz = 0, mx = 0, my = 0, mz = 0, mt = 0;
     for (let i = 0; i < this.NN; i++) {
+      if (this.dead[i]) continue;
       cx += px[i] * m[i]; cy += py[i] * m[i]; cz += pz[i] * m[i];
       mx += vx[i] * m[i]; my += vy[i] * m[i]; mz += vz[i] * m[i]; mt += m[i];
     }
@@ -495,16 +511,30 @@ export class Car {
   // names of parts that have come off (panels with almost nothing left holding them, wheels, engine)
   partsLost() {
     const out = [];
-    for (const p of this.panels) {
-      let intact = 0; for (const q of p.attach) if (!this.broken[q]) intact++;
-      p.lost = intact <= p.attach.length * 0.25;
-      if (p.lost) out.push(p.name);
-    }
+    for (const p of this.panels) if (p.gone) out.push(p.name);
     for (const w of this.wheels) if (!w.alive) out.push('wheel');
     let mounts = 0; for (let q = 0; q < this.NB; q++) if (this.bkind[q] === 5 && this.ba[q] === ENG && !this.broken[q]) mounts++;
     if (mounts <= 2) out.push('engine');
     this.lostParts = out.length;
     return out;
+  }
+
+  // a panel that has lost its mounts (hinges/latches gone, or pulled off its backing) falls away from the car
+  checkPanels() {
+    for (const p of this.panels) {
+      if (p.gone) continue;
+      let ti = 0, bi = 0;
+      for (const q of p.tang) if (!this.broken[q]) ti++;
+      for (const q of p.back) if (!this.broken[q]) bi++;
+      if ((p.tang.length && ti <= p.tang.length * 0.34) || bi <= p.back.length * 0.34) this.dropPanel(p);
+    }
+  }
+  dropPanel(p) {
+    p.gone = true;
+    for (const i of p.nodes) { this.dead[i] = 1; this.vx[i] = this.vy[i] = this.vz[i] = 0; }
+    for (let q = 0; q < this.NB; q++) if (this.dead[this.ba[q]] || this.dead[this.bb[q]]) this.broken[q] = 1;
+    const i = p.nodes[(p.nodes.length / 2) | 0];
+    if (this.lostEvents.length < 12) this.lostEvents.push([this.px[i], this.py[i], this.pz[i], p.name]);
   }
 
   // per-node dent amount 0..1 (for visual darkening)
@@ -552,11 +582,12 @@ export class Car {
     const target_rpm = Math.max(raw, this.throttle > 0.05 ? 2000 + 3000 * this.throttle * (sp < 8 ? 1 : 0.2) : 900);
     this.rpm += (Math.min(target_rpm, 7200) - this.rpm) * Math.min(1, dt * 12);
 
-    this.braking = 0; this.bodyHit = false; this.sparks.length = 0; this.breaks.length = 0;
+    this.braking = 0; this.bodyHit = false; this.sparks.length = 0; this.breaks.length = 0; this.lostEvents.length = 0;
     this.acc += dt;
     let n = 0;
     while (this.acc >= DT && n < MAX_STEPS) { this.step(inp); this.acc -= DT; n++; }
     if (this.acc > DT * MAX_STEPS) this.acc = 0;
+    this.checkPanels();
     this.airborne = this.groundedCount === 0 && !this.bodyHit;
   }
 
@@ -770,6 +801,7 @@ export class Car {
     // body collision points (ground, boxes). Light panel nodes get softer contacts so they stay stable.
     for (let c = 0; c < this.NC; c++) {
       const a = this.cpA[c], b = this.cpB[c], t = this.cpT[c];
+      if (this.dead[a] || this.dead[b]) { this.cpS[c] = this.cpS[c]; continue; }
       const x = px[a] + (px[b] - px[a]) * t, y = py[a] + (py[b] - py[a]) * t, z = pz[a] + (pz[b] - pz[a]) * t;
       const cvx = vx[a] + (vx[b] - vx[a]) * t, cvy = vy[a] + (vy[b] - vy[a]) * t, cvz = vz[a] + (vz[b] - vz[a]) * t;
       this.cpx[c] = x; this.cpy[c] = y; this.cpz[c] = z; this.cvx[c] = cvx; this.cvy[c] = cvy; this.cvz[c] = cvz;
@@ -788,6 +820,7 @@ export class Car {
     // integrate (semi-implicit Euler)
     let bad = false;
     for (let i = 0; i < NN; i++) {
+      if (this.dead[i]) continue;
       vx[i] += fx[i] / m[i] * dt; vy[i] += fy[i] / m[i] * dt; vz[i] += fz[i] / m[i] * dt;
       px[i] += vx[i] * dt; py[i] += vy[i] * dt; pz[i] += vz[i] * dt;
       if (!(px[i] === px[i]) || !(py[i] === py[i]) || !(pz[i] === pz[i])) bad = true;
@@ -834,6 +867,7 @@ export class Car {
   }
 
   ballHit(b, x, y, z, vx, vy, vz, rad, na, nb, t, ks) {
+    if (this.dead[na]) return;
     const dx = x - b.x, dy = y - b.y, dz = z - b.z, rr = rad + b.r;
     if (Math.abs(dx) > rr || Math.abs(dy) > rr || Math.abs(dz) > rr) return;
     const dist = Math.hypot(dx, dy, dz);

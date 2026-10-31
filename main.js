@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Car, VEHICLES, OBSTACLES, TREES, BALLS, RAMPS, terrainHeight, onRamp, resetBalls, WORLD_HALF, st as stn } from './physics.js';
+import { Car, VEHICLES, OBSTACLES, TREES, BALLS, RAMPS, terrainHeight, onRamp, resetBalls, WORLD_HALF, st as stn, ENG } from './physics.js';
 import { Particles, Skids } from './fx.js';
 
 // ------------------------------------------------------------ settings
@@ -153,17 +153,44 @@ const skids = new Skids(scene);
 
 // ------------------------------------------------------------ car visuals
 let car, body, bodyGeo, bodyMat, triIdx, triKind, baseCol, wheelGroups = [], lines, lineGeo;
+let glassMesh, glassGeo, glassIdx = [], glassFaces = [];
 let headMeshes = [], tailMeshes = [], headLights = [];
-const GLASS = [0.08, 0.13, 0.18], DARK = [0.06, 0.06, 0.07];
+const GLASS = [0.08, 0.13, 0.18], DARK = [0.06, 0.06, 0.07], PRIMER = [0.14, 0.13, 0.13];
 let showBeams = false;
 
 function disposeCar() {
   if (!car) return;
   scene.remove(body); bodyGeo.dispose(); bodyMat.dispose();
+  scene.remove(glassMesh); glassGeo.dispose();
   for (const g of wheelGroups) scene.remove(g);
   scene.remove(lines); lineGeo.dispose();
   for (const m of headMeshes.concat(tailMeshes)) scene.remove(m);
   for (const l of headLights) { scene.remove(l); scene.remove(l.target); }
+}
+
+let _crackTex;
+function crackTexture() {
+  if (_crackTex) return _crackTex;
+  const S = 256, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const c = cv.getContext('2d');
+  c.strokeStyle = 'rgba(235,245,255,0.95)'; c.lineCap = 'round';
+  let seed = 7; const R = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (let w = 0; w < 3; w++) {                        // a few impact points, each a star of cracks with a spider web around it
+    const cx = S * (0.2 + 0.6 * R()), cy = S * (0.2 + 0.6 * R()), n = 9 + (R() * 6) | 0;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + R() * 0.3; let x = cx, y = cy, len = S * (0.25 + 0.5 * R());
+      c.lineWidth = 1.6; c.beginPath(); c.moveTo(x, y);
+      for (let s = 0; s < 6; s++) { const st = len / 6; x += Math.cos(a + (R() - 0.5) * 0.5) * st; y += Math.sin(a + (R() - 0.5) * 0.5) * st; c.lineTo(x, y); }
+      c.stroke();
+    }
+    for (let r = 1; r <= 4; r++) {
+      const rad = r * S * 0.07; c.lineWidth = 1; c.beginPath();
+      for (let i = 0; i <= n; i++) { const a = (i / n) * Math.PI * 2, rr = rad * (0.85 + 0.3 * R()); const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr; if (i) c.lineTo(x, y); else c.moveTo(x, y); }
+      c.stroke();
+    }
+  }
+  _crackTex = new THREE.CanvasTexture(cv); _crackTex.anisotropy = 4;
+  return _crackTex;
 }
 
 function buildCar(key) {
@@ -177,7 +204,7 @@ function buildCar(key) {
   triIdx = []; triKind = []; baseCol = [];
   for (const f of car.faces) {
     const [a, b, c, d] = f.q;
-    const col = f.col === 'paint' ? paint : f.col === 'glass' ? GLASS : DARK;
+    const col = f.col === 'paint' ? paint : f.col === 'glass' ? GLASS : f.col === 'primer' ? PRIMER : DARK;
     for (const t of [[a, b, c], [a, c, d]]) for (const v of t) { triIdx.push(v); triKind.push(f.col === 'paint' ? 0 : f.col === 'glass' ? 1 : 2); baseCol.push(...col); }
   }
   bodyGeo = new THREE.BufferGeometry();
@@ -187,6 +214,23 @@ function buildCar(key) {
   body = new THREE.Mesh(bodyGeo, bodyMat);
   body.castShadow = true; body.frustumCulled = false;
   scene.add(body);
+
+  // windows: crack overlay whose opacity follows the damage around each pane
+  glassFaces = car.faces.filter((f) => f.col === 'glass');
+  glassIdx = [];
+  const gUV = [];
+  for (const f of glassFaces) {
+    const [a, b, c, d] = f.q;
+    const uv = [[0, 0], [1, 0], [1, 1], [0, 1]];
+    for (const t of [[0, 1, 2], [0, 2, 3]]) for (const k of t) { glassIdx.push([a, b, c, d][k]); gUV.push(uv[k][0], uv[k][1]); }
+  }
+  glassGeo = new THREE.BufferGeometry();
+  glassGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(glassIdx.length * 3), 3));
+  glassGeo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(gUV), 2));
+  glassGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(glassIdx.length * 4), 4));
+  glassMesh = new THREE.Mesh(glassGeo, new THREE.MeshBasicMaterial({ map: crackTexture(), vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  glassMesh.frustumCulled = false; glassMesh.renderOrder = 3;
+  scene.add(glassMesh);
 
   const WR = car.WR;
   wheelGroups = car.wheels.map(() => {
@@ -233,6 +277,9 @@ function updateVisuals() {
   }
   bodyGeo.attributes.position.needsUpdate = true;
   bodyGeo.computeVertexNormals();
+  const gp = glassGeo.attributes.position.array;
+  for (let i = 0; i < glassIdx.length; i++) { const n = glassIdx[i]; gp[i * 3] = car.px[n]; gp[i * 3 + 1] = car.py[n]; gp[i * 3 + 2] = car.pz[n]; }
+  glassGeo.attributes.position.needsUpdate = true;
 
   if (frameCount % 6 === 0) {   // dent colouring: scorch paint, whiten cracked glass
     const nd = car.updateNodeDamage(), cc = bodyGeo.attributes.color.array;
@@ -243,6 +290,12 @@ function updateVisuals() {
       for (let c = 0; c < 3; c++) cc[i * 3 + c] = baseCol[i * 3 + c] * (1 - s) + tr[c] * s;
     }
     bodyGeo.attributes.color.needsUpdate = true;
+    const gc = glassGeo.attributes.color.array;
+    glassFaces.forEach((f, fi) => {
+      const dm = (nd[f.q[0]] + nd[f.q[1]] + nd[f.q[2]] + nd[f.q[3]]) / 4, al = Math.min(1, Math.max(0, (dm - 0.04) * 3.5));
+      for (let v = 0; v < 6; v++) { const o = (fi * 6 + v) * 4; gc[o] = gc[o + 1] = gc[o + 2] = 1; gc[o + 3] = al; }
+    });
+    glassGeo.attributes.color.needsUpdate = true;
   }
 
   const fwd = V(car.fwd), left = V(car.left), up = V(car.up);
@@ -259,11 +312,11 @@ function updateVisuals() {
 
   // lamps follow the deforming bodywork
   for (let side = 0; side < 2; side++) {
-    const h = nodePos(stn(9, side ? 4 : 1)).lerp(nodePos(stn(9, side ? 1 : 4)), 0.28).addScaledVector(up, -0.02).addScaledVector(fwd, 0.04);
+    const h = nodePos(stn(11, side ? 4 : 1)).lerp(nodePos(stn(11, side ? 1 : 4)), 0.28).addScaledVector(up, 0.1).addScaledVector(fwd, 0.04);
     headMeshes[side].position.copy(h);
     headLights[side].position.copy(h);
     headLights[side].target.position.copy(h).addScaledVector(fwd, 12).addScaledVector(up, -1.2);
-    const t = nodePos(stn(0, side ? 4 : 1)).lerp(nodePos(stn(0, side ? 1 : 4)), 0.28).addScaledVector(up, 0.02).addScaledVector(fwd, -0.04);
+    const t = nodePos(stn(0, side ? 4 : 1)).lerp(nodePos(stn(0, side ? 1 : 4)), 0.28).addScaledVector(up, 0.08).addScaledVector(fwd, -0.04);
     tailMeshes[side].position.copy(t);
     const mat = tailMeshes[side].material;
     mat.color.set(car.braking > 0.1 ? 0xff2a2a : car.reverse ? 0xffffff : 0x701010);
@@ -305,12 +358,17 @@ function updateFx(dt, inp) {
   }
   const dmg = car.damage;
   if (dmg > 30 && Math.random() < Math.min(1, dt * (dmg - 20) * 0.6)) {
-    const p = nodePos(stn(8, 2)).lerp(nodePos(stn(8, 3)), 0.5);
+    const p = nodePos(ENG).addScaledVector(V(car.up), 0.55);
     particles.emit(p.x, p.y + 0.2, p.z, (Math.random() - 0.5) * 0.6, 1.8 + Math.random(), (Math.random() - 0.5) * 0.6, 2.2, 0.6, 4, 0.25, 0.25, 0.27, 0.5, 0.3);
   }
   if (dmg > 70 && Math.random() < dt * 40) {
-    const p = nodePos(stn(8, 2)).lerp(nodePos(stn(8, 3)), 0.5);
+    const p = nodePos(ENG).addScaledVector(V(car.up), 0.55);
     particles.emit(p.x, p.y + 0.15, p.z, (Math.random() - 0.5) * 0.8, 2 + Math.random() * 1.5, (Math.random() - 0.5) * 0.8, 0.7, 0.55, -0.4, 1, 0.5 + Math.random() * 0.3, 0.1, 0.8, 1.5);
+  }
+  for (let i = 0; i < car.breaks.length && i < 8; i++) {   // metal tearing off: sparks and a puff of dust
+    const b = car.breaks[i];
+    for (let k = 0; k < 3; k++) particles.emit(b[0], b[1], b[2], (Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6, 0.5, 0.1, -0.3, 1, 0.7, 0.25, 1, -14);
+    if (i % 2 === 0) particles.emit(b[0], b[1], b[2], (Math.random() - 0.5), 0.6, (Math.random() - 0.5), 1.0, 0.5, 2.5, 0.6, 0.6, 0.6, 0.3, 0.3);
   }
   particles.update(dt);
 }
@@ -522,6 +580,7 @@ function trackStats(dt) {
   el('dmgbar').style.width = dmg + '%';
   el('cost').textContent = '$' + Math.round(dmg * 85).toLocaleString();
   el('brk').textContent = car.brokenCount;
+  if (frameCount % 10 === 0) { const l = car.partsLost(); el('lost').textContent = l.length ? 'Parts lost: ' + l.join(', ') : 'All parts attached'; }
   el('air').textContent = st.air ? 'AIR ' + st.t.toFixed(1) + 's' : (st.last ? 'Last jump ' + st.last.dist.toFixed(0) + ' m / ' + st.last.air.toFixed(1) + ' s' : 'Last jump -');
   el('best').textContent = 'Best jump ' + best.jump.toFixed(0) + ' m · top speed ' + best.speed.toFixed(0) + ' km/h';
 }
@@ -570,7 +629,7 @@ function updateCamera(dt) {
   const k = 1 - Math.exp(-dt * 4);
   const heading = Math.atan2(fl.x, fl.z);
   if (!mouseCam && camMode === 1) {          // bonnet / driver
-    const a1 = stn(5, 2), a2 = stn(5, 3), p = new THREE.Vector3((car.px[a1] + car.px[a2]) / 2, (car.py[a1] + car.py[a2]) / 2 - 0.18, (car.pz[a1] + car.pz[a2]) / 2);
+    const a1 = stn(6, 2), a2 = stn(6, 3), p = new THREE.Vector3((car.px[a1] + car.px[a2]) / 2, (car.py[a1] + car.py[a2]) / 2 - 0.2, (car.pz[a1] + car.pz[a2]) / 2).addScaledVector(V(car.fwd), 0.25);
     camera.position.copy(p); camera.lookAt(p.clone().addScaledVector(fwd, 10));
     camPos.copy(p); camLook.copy(p); headSm = heading;
   } else if (mouseCam) {                     // free orbit with the mouse

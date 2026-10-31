@@ -3,7 +3,11 @@
 A BeamNG-style soft-body driving sandbox that runs entirely in the browser (plain HTML + JavaScript + [Three.js](https://threejs.org) from a CDN). No build step, so it works as-is on GitHub Pages.
 
 ## Features
-- **BeamNG-style soft-body physics** (`physics.js`): every vehicle is 66 mass points (10 body cross-sections, engine, fuel tank, 4 hubs) joined by 416 springs, simulated at 1500 Hz. Beams yield plastically and harden as they crush, so the front and rear crumple (about 0.5 m at 60 km/h, ~1.8 m at 100 km/h) while the passenger cell holds. Stretched beams snap, suspension can tear off, and the bodywork darkens and the glass whitens where it is damaged.
+- **BeamNG-style soft-body physics** (`physics.js`): every vehicle is ~200 mass points joined by ~1,000 springs, simulated at 1500 Hz.
+  - A stiff passenger cell with crumple zones front and rear. Beams yield plastically and harden as they crush (about 0.7 m of nose crush at 60 km/h, 1.5 m at 100 km/h), and snap when over-stretched.
+  - **Real suspension**: wishbone arms plus a spring/damper strut per wheel with bump stops, droop limits, and different damping in compression and rebound. Ride height self-calibrates at start-up.
+  - **Separate body panels**: front/rear bumpers, hood, trunk, both doors, fenders, quarter panels and side skirts are each their own grid of nodes, held on by breakable attachments. They dent, flap and can tear off. Engine and fuel tank sit on breakable mounts, and wheels can be torn off.
+  - Windows crack (spider-web overlay) where the bodywork around them is damaged; paint scorches where dented.
 - **3 vehicles**: Sedan (RWD), Pickup (AWD, heavy), Coupe (light and fast), plus 7 paint colours.
 - **Automatic gearbox** with RPM, gear display, rev limiter, and engine / tyre-squeal / wind / crash sound.
 - **World**: ramps, a big jump, a skyline plateau drop, speed bumps, a mound, slalom pillars, crates, a crash wall, trees, and pushable balls.
@@ -41,4 +45,4 @@ To run locally: `python3 -m http.server` and open http://localhost:8000 (ES modu
 - `index.html` - page, HUD, menu
 - `main.js` - Three.js scene, rendering, input, camera, sound, UI
 - `fx.js` - particles and skid marks
-- `physics.js` - the soft-body physics (no dependencies, runs in Node too)
+- `physics.js` - the soft-body physics (no dependencies, runs in Node too; headless tests are easy to write against it)

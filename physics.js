@@ -189,7 +189,7 @@ export const VEHICLES = {
   VEHICLES.hatch = mk({
     name: 'Hatchback', blurb: 'Small, front-wheel drive, agile',
     Z: sc(S.Z, 0.82), YB: add(S.YB, -0.02), YR: [1.02, 1.18, 1.32, 1.4, 1.44, 1.46, 1.45, 1.38, 0.98, 0.95, 0.92, 0.8], WB: sc(S.WB, 0.96), WT: sc(S.WT, 1.03),
-    WF: 0.7, WX: 0.95, WR: 0.32, axF: 1.19, axR: -1.11, EA: 3.8e5, mass: 1050, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.9,
+    WF: 0.72, WX: 1.0, WR: 0.32, axF: 1.19, axR: -1.11, EA: 3.8e5, mass: 1050, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.9,
     rideF: 1.45, rideR: 1.65, torque: 160, final: 4.1, drive: 'fwd', grip: 1.25, drag: 0.016, brake: 4200,
   });
   VEHICLES.suv = mk({
@@ -216,8 +216,8 @@ export const VEHICLES = {
   });
   VEHICLES.mini = mk({
     name: 'Mini', blurb: 'Tiny and fragile, front-wheel drive',
-    Z: sc(S.Z, 0.72), YB: add(S.YB, -0.05), YR: [1.1, 1.22, 1.3, 1.38, 1.42, 1.44, 1.42, 1.36, 1.0, 0.94, 0.9, 0.78], WB: sc(S.WB, 0.9), WT: sc(S.WT, 0.92),
-    WF: 0.62, WX: 0.86, WR: 0.28, axF: 1.04, axR: -0.97, EA: 2.8e5, mass: 750, mEng: 80, mFuel: 30, mWheel: 22, pm: 0.7,
+    Z: sc(S.Z, 0.72), YB: add(S.YB, -0.05), YR: [1.02, 1.12, 1.2, 1.26, 1.3, 1.32, 1.3, 1.25, 0.94, 0.9, 0.86, 0.76], WB: sc(S.WB, 0.97), WT: sc(S.WT, 0.95),
+    WF: 0.68, WX: 0.94, WR: 0.28, axF: 1.04, axR: -0.97, EA: 2.8e5, mass: 750, mEng: 80, mFuel: 30, mWheel: 22, pm: 0.7,
     rideF: 1.5, rideR: 1.7, travelUp: 0.09, travelDown: 0.11, torque: 105, final: 4.3, drive: 'fwd', grip: 1.2, drag: 0.012, brake: 3600,
   });
 }
@@ -401,8 +401,8 @@ export class Car {
       const s2 = s1 + 1;
       const nearK = w.left ? 0 : 5, farK = w.left ? 5 : 0;
       for (const s of [s1, s2]) {
-        w.arms.push(addW(w.i, st(s, nearK), 190, 0.1, 0.12, 0.3, 0, 3));
-        w.arms.push(addW(w.i, st(s, farK), 190, 0.1, 0.12, 0.3, 0, 3));
+        w.arms.push(addW(w.i, st(s, nearK), 190, 0.1, 0.12, 0.5, 0, 3));
+        w.arms.push(addW(w.i, st(s, farK), 190, 0.1, 0.12, 0.5, 0, 3));
       }
       const topS = w.front ? s1 : s2;
       const top = st(topS, w.left ? 1 : 4);
@@ -728,7 +728,7 @@ export class Car {
     const fs = this.forwardSpeed, sp = Math.abs(fs);
     const up = +inp.up || 0, dn = +inp.down || 0;
     this.throttle = up > dn ? up : (this.reverse ? dn : 0);
-    const maxSteer = Math.max(0.1, 0.6 / (1 + sp * 0.06));
+    const maxSteer = Math.max(0.08, 0.6 / (1 + sp * 0.09));
     const target = clamp(inp.steer, -1, 1) * maxSteer;
     const rate = 1.8 * dt;
     this.steerAngle += clamp(target - this.steerAngle, -rate, rate);
@@ -853,7 +853,7 @@ export class Car {
         }
         // attachments and panel sheet metal torn out when crushed flat
         const kd = this.bkind[q];
-        if ((kd === 2 && L < 0.6 * this.bL00[q]) || (kd === 1 && L < 0.22 * this.bL00[q]) || (kd === 3 && L < 0.45 * this.bL00[q])) {
+        if ((kd === 2 && L < 0.6 * this.bL00[q]) || (kd === 1 && L < 0.22 * this.bL00[q]) || (kd === 3 && L < 0.35 * this.bL00[q])) {
           this.broken[q] = 1; if (this.breaks.length < 30) this.breaks.push([px[a], py[a], pz[a], kd]);
         }
       }

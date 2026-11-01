@@ -265,7 +265,7 @@ function buildCar(key) {
   glassGeo.setAttribute('uv', new THREE.BufferAttribute(gUV, 2));
   glassGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(NN * 4), 4));
   glassIdxAttr = new THREE.BufferAttribute(new Uint32Array(glassIdxArr.length), 1); glassGeo.setIndex(glassIdxAttr);
-  tintMesh = new THREE.Mesh(glassGeo, new THREE.MeshPhongMaterial({ color: 0x1b2c3a, transparent: true, opacity: 0.38, specular: 0xffffff, shininess: 120, depthWrite: false, side: THREE.DoubleSide }));
+  tintMesh = new THREE.Mesh(glassGeo, new THREE.MeshPhongMaterial({ color: 0x1b2c3a, transparent: true, opacity: 0.55, specular: 0xffffff, shininess: 120, depthWrite: false, side: THREE.DoubleSide }));
   tintMesh.frustumCulled = false; tintMesh.renderOrder = 2;
   glassMesh = new THREE.Mesh(glassGeo, new THREE.MeshBasicMaterial({ map: crackTexture(), vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   glassMesh.frustumCulled = false; glassMesh.renderOrder = 3;
@@ -351,7 +351,7 @@ function buildCar(key) {
     const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff2c8 }), plateMat = new THREE.MeshStandardMaterial({ color: 0xf2f2f0, roughness: 0.6 });
     const chromeMat = new THREE.MeshStandardMaterial({ color: 0xc8ccd0, metalness: 0.9, roughness: 0.25 }), paintMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(...paint), roughness: 0.38, metalness: 0.4 });
     const lw = 0.17 + car.def.WB[11] * 0.1;
-    addDet('grille', 1, 0, [0.22, -0.1, 0.03], bxm(0.34, 0.15, 0.06, lampMat)); addDet('grille', 1, 4, [-0.22, -0.1, 0.03], bxm(0.34, 0.15, 0.06, lampMat));
+    addDet('grille', 1, 0, [0.3, -0.05, 0.03], bxm(0.2, 0.09, 0.05, lampMat)); addDet('grille', 1, 4, [-0.3, -0.05, 0.03], bxm(0.2, 0.09, 0.05, lampMat));
     addDet('tailPanel', 1, 0, [0.2, -0.08, -0.03], bxm(0.3, 0.12, 0.05, tailMeshes[1].material)); addDet('tailPanel', 1, 4, [-0.2, -0.08, -0.03], bxm(0.3, 0.12, 0.05, tailMeshes[0].material));
     addDet('grille', 0, 2, [0, 0.1, 0.045], bxm(0.5, 0.12, 0.012, plateMat)); addDet('tailPanel', 0, 2, [0, 0.1, -0.045], bxm(0.5, 0.12, 0.012, plateMat));
     for (const k of [1, 2, 3]) addDet('grille', 1, k, [0, -0.2, 0.03], bxm(0.24, 0.03, 0.03, chromeMat));
@@ -875,7 +875,9 @@ el('drive').onclick = () => {
 setTimeout(() => setMouseCam(true), 0);
 const camPos = new THREE.Vector3(0, 6, -12), camLook = new THREE.Vector3();
 
+let shotCam = null; window.__shot = (p, t) => { shotCam = p ? { p, t } : null; };   // debug hook for screenshots
 function updateCamera(dt) {
+  if (shotCam) { const c0 = car.com; camera.position.set(c0[0] + shotCam.p[0], c0[1] + shotCam.p[1], c0[2] + shotCam.p[2]); camera.lookAt(c0[0] + shotCam.t[0], c0[1] + shotCam.t[1], c0[2] + shotCam.t[2]); return; }
   const c = car.com, cc = V(c), fwd = V(car.fwd);
   const fl = new THREE.Vector3(fwd.x, 0, fwd.z).normalize();
   const k = 1 - Math.exp(-dt * 4);

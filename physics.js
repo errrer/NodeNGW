@@ -233,6 +233,7 @@ export const VEHICLES = {
     WF: 0.68, WX: 0.94, WR: 0.28, axF: 1.04, axR: -0.97, EA: 2.8e5, mass: 750, mEng: 80, mFuel: 30, mWheel: 22, pm: 0.7,
     rideF: 1.5, rideR: 1.7, travelUp: 0.09, travelDown: 0.11, torque: 105, final: 4.3, drive: 'fwd', grip: 1.2, drag: 0.012, brake: 3600,
   });
+  for (const d of Object.values(VEHICLES)) d.WX = Math.max(...d.WB) - 0.14;   // tyres sit under the bodywork, not outside it
 }
 
 // structural faces that stay when body panels come off: floor, end fascia, inner arch walls (bed floor for trucks)
@@ -334,8 +335,13 @@ export class Car {
     addPanel('bumperR', 2, 5, bumper(0, -1), { mass: 11 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 2, col: 'chrome' });
     addPanel('bumperF', 2, 5, bumper(11, 1), { mass: 12 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 9, col: 'chrome' });
 
-    const fascia = (end, dir) => (r, c) => { const x = (c / 4 * 2 - 1) * WB[end]; return [x, lerp(YF[end] + 0.2, Math.max(YR[end] - 0.02, YF[end] + 0.5), r), Z[end] + dir * 0.04]; };
-    addPanel('grille', 2, 5, fascia(11, 1), { mass: 4 * pm, att: rim(2, 5, 0.6), yld: 0.02, anchorSt: 10, col: 'dark' });
+    const fascia = (end, dir) => (r, c) => {
+      const y = lerp(YF[end] + 0.2, Math.max(YR[end] - 0.07, YF[end] + 0.5), r);
+      const t = Math.min(1, Math.max(0, (y - YB[end]) / Math.max(0.05, YR[end] - YB[end])));
+      const hw = WB[end] + (WT[end] - WB[end]) * t - 0.01;             // follow the body outline: narrower above the beltline
+      return [(c / 4 * 2 - 1) * hw, y, Z[end] + dir * 0.04];
+    };
+    addPanel('grille', 2, 5, fascia(11, 1), { mass: 4 * pm, att: rim(2, 5, 0.6), yld: 0.02, anchorSt: 10 });
     addPanel('tailPanel', 2, 5, fascia(0, -1), { mass: 4 * pm, att: rim(2, 5, 0.6), yld: 0.02, anchorSt: 1 });
     addPanel('underbody', 3, 5, (r, c) => { const { p, z } = rp(2 + c * 2), a = p[5], b = p[0]; return [lerp(a[0], b[0], r / 2), lerp(a[1], b[1], r / 2) - 0.04, z]; }, { mass: 6 * pm, att: (r, c) => ((r === 0 || r === 2) && (c === 0 || c === 4 || c === 2)) ? 0.7 : 0, yld: 0.02, col: 'dark' });
 

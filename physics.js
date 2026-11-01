@@ -169,27 +169,18 @@ export const VEHICLES = {
   },
 };
 
-// chassis skin faces: 'paint' | 'glass' | 'dark' (floor) | 'primer' (hidden under a panel)
+// structural faces that stay when body panels come off: floor, end fascia, inner arch walls (bed floor for trucks)
 function chassisFaces(bed) {
   const F = [];
   const q = (a, b, c, d, col) => F.push({ q: [a, b, c, d], col });
   for (let s = 0; s < NSTA - 1; s++) {
-    for (let g = 0; g < 6; g++) {
-      const a = g, b = (g + 1) % 6;
-      let col = 'paint';
-      if (g === 5) col = 'dark';
-      else if (g === 0 || g === 4) col = 'primer';
-      else if (g === 1 || g === 3) { if (s >= 3 && s <= 6) col = 'glass'; }
-      else if (g === 2) {
-        if (s === 2 || s === 3 || s === 7) col = 'glass';
-        else if (s <= 1 || s >= 8) col = (bed && s <= 3) ? 'dark' : 'primer';
-        if (bed && s <= 3 && s !== 3) col = 'dark';
-      }
-      q(st(s, a), st(s + 1, a), st(s + 1, b), st(s, b), col);
-    }
+    q(st(s, 5), st(s + 1, 5), st(s + 1, 0), st(s, 0), 'dark');
+    if (s < 3 || s >= 8) { q(st(s, 0), st(s + 1, 0), st(s + 1, 1), st(s, 1), 'dark'); q(st(s, 4), st(s + 1, 4), st(s + 1, 5), st(s, 5), 'dark'); }
+    if (s < 3 || s >= 8) { q(st(s, 1), st(s + 1, 1), st(s + 1, 2), st(s, 2), 'dark'); q(st(s, 3), st(s + 1, 3), st(s + 1, 4), st(s, 4), 'dark'); }
+    if (bed && s < 3) q(st(s, 2), st(s + 1, 2), st(s + 1, 3), st(s, 3), 'dark');
   }
-  q(st(0, 0), st(0, 5), st(0, 4), st(0, 1), 'paint'); q(st(0, 1), st(0, 4), st(0, 3), st(0, 2), 'paint');
-  q(st(11, 0), st(11, 5), st(11, 4), st(11, 1), 'paint'); q(st(11, 1), st(11, 4), st(11, 3), st(11, 2), 'paint');
+  q(st(0, 0), st(0, 5), st(0, 4), st(0, 1), 'dark'); q(st(0, 1), st(0, 4), st(0, 3), st(0, 2), 'dark');
+  q(st(11, 0), st(11, 5), st(11, 4), st(11, 1), 'dark'); q(st(11, 1), st(11, 4), st(11, 3), st(11, 2), 'dark');
   return F;
 }
 
@@ -229,16 +220,17 @@ export class Car {
     for (let s = 0; s < NSTA; s++) addNode(0, (YF[s] + YB[s]) / 2, Z[s], 1);
 
     // ---------------- panels: separate grids of nodes laid over the chassis skin
-    const side = (s, h, sg, off) => {     // point on lower side, fraction h up from floor edge to belt line
-      const p = ringPts(s), a = p[0], b = p[1];
-      const x = a[0] + (b[0] - a[0]) * h, y = a[1] + (b[1] - a[1]) * h;
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const rp = (sf) => {                  // ring cross-section at fractional station sf
+      const s0 = Math.max(0, Math.min(NSTA - 2, Math.floor(sf))), t = sf - s0, A = ringPts(s0), B = ringPts(s0 + 1);
+      return { p: A.map((a, k) => [lerp(a[0], B[k][0], t), lerp(a[1], B[k][1], t)]), z: lerp(Z[s0], Z[s0 + 1], t) };
+    };
+    const edgeAt = (sf, k0, k1, h, sg, off) => {   // point h along ring edge k0->k1, pushed out by off
+      const { p, z } = rp(sf), a = p[k0], b = p[k1];
       const rx = b[0] - a[0], ry = b[1] - a[1], l = Math.hypot(rx, ry) || 1;
-      return [sg * (x + ry / l * off), y - rx / l * off, Z[s]];
+      return [sg * (a[0] + rx * h + ry / l * off), a[1] + ry * h - rx / l * off, z];
     };
-    const top = (s, t, off) => {          // point on the top line between the two roof/shoulder nodes
-      const p = ringPts(s), a = p[2], b = p[3];
-      return [a[0] + (b[0] - a[0]) * t, a[1] + off, Z[s]];
-    };
+    const topAt = (sf, t, off) => { const { p, z } = rp(sf), a = p[2], b = p[3]; return [lerp(a[0], b[0], t), a[1] + off, z]; };
     const panelDefs = [];
     const addPanel = (name, rows, cols, posFn, o) => {
       const idx = [];
@@ -247,15 +239,22 @@ export class Car {
     };
     const pm = d.pm;
     const DOOR_H = [0.3, 0.65, 1.0], FEND_H = [0.2, 0.6, 1.0];
+    const corners = (rows, cols, v) => (r, c) => ((r === 0 || r === rows - 1) && (c === 0 || c === cols - 1)) ? v : 0;
+    const rim = (rows, cols, v) => (r, c) => (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) ? v : 0;
     for (const sg of [1, -1]) {
       const L = sg > 0 ? 'L' : 'R';
-      addPanel('door' + L, 3, 4, (r, c) => side(4 + c, DOOR_H[r], sg, 0.03), { mass: 16 * pm, att: (r, c) => (c === 3 ? 1.0 : c === 0 ? 0.65 : 0), yld: 0.012 });
-      addPanel('fender' + L, 3, 3, (r, c) => side(8 + c, FEND_H[r], sg, 0.03), { mass: 5 * pm, att: (r, c) => (c === 0 || c === 2 ? 0.7 : 0), yld: 0.014 });
-      addPanel('quarter' + L, 3, 3, (r, c) => side(1 + c, FEND_H[r], sg, 0.03), { mass: 5 * pm, att: (r, c) => (c === 0 || c === 2 ? 0.7 : 0), yld: 0.014 });
-      addPanel('skirt' + L, 2, 6, (r, c) => side(3 + c, r === 0 ? 0 : 0.22, sg, 0.045), { mass: 3 * pm, att: (r, c) => (c === 0 || c === 5 ? 0.5 : (c === 2 || c === 3) && r === 0 ? 0.4 : 0), yld: 0.02 });
+      addPanel('door' + L, 3, 4, (r, c) => edgeAt(4 + c, 0, 1, DOOR_H[r], sg, 0.03), { mass: 16 * pm, att: (r, c) => (c === 3 ? 1.0 : c === 0 ? 0.65 : 0), yld: 0.012 });
+      addPanel('fender' + L, 3, 3, (r, c) => edgeAt(8 + c, 0, 1, FEND_H[r], sg, 0.03), { mass: 5 * pm, att: (r, c) => (c === 0 || c === 2 ? 0.7 : 0), yld: 0.014 });
+      addPanel('quarter' + L, 3, 3, (r, c) => edgeAt(1 + c, 0, 1, FEND_H[r], sg, 0.03), { mass: 5 * pm, att: (r, c) => (c === 0 || c === 2 ? 0.7 : 0), yld: 0.014 });
+      addPanel('skirt' + L, 2, 6, (r, c) => edgeAt(3 + c, 0, 1, r === 0 ? 0 : 0.22, sg, 0.045), { mass: 3 * pm, att: (r, c) => (c === 0 || c === 5 ? 0.9 : (c === 2 || c === 3) && r === 0 ? 0.7 : 0), yld: 0.02 });
+      addPanel('window' + L, 2, 5, (r, c) => edgeAt(3 + c, 1, 2, r, sg, 0.02), { mass: 4 * pm, att: rim(2, 5, 0.5), yld: 0.5, glass: true });
     }
-    addPanel('hood', 3, 4, (r, c) => top(8 + c, r / 2, 0.03), { mass: 13 * pm, att: (r, c) => (c === 0 ? 1.0 : c === 3 ? 0.65 : r !== 1 ? 0.3 : 0), yld: 0.012 });
-    if (!d.bed) addPanel('trunk', 3, 3, (r, c) => top(c, r / 2, 0.03), { mass: 9 * pm, att: (r, c) => (c === 2 ? 1.0 : c === 0 ? 0.65 : r !== 1 ? 0.3 : 0), yld: 0.012 });
+    addPanel('hood', 3, 4, (r, c) => topAt(8 + c, r / 2, 0.03), { mass: 13 * pm, att: (r, c) => (c === 0 ? 1.0 : c === 3 ? 0.65 : r !== 1 ? 0.3 : 0), yld: 0.012 });
+    if (!d.bed) addPanel('trunk', 3, 3, (r, c) => topAt(c * 1.25, r / 2, 0.03), { mass: 9 * pm, att: (r, c) => (c === 2 ? 1.0 : c === 0 ? 0.65 : r !== 1 ? 0.3 : 0), yld: 0.012 });
+    addPanel('roof', 3, 4, (r, c) => topAt(4 + c, r / 2, 0.03), { mass: 9 * pm, att: corners(3, 4, 0.9), yld: 0.012 });
+    addPanel('windshield', 3, 3, (r, c) => topAt(7 + c * 0.5, r / 2, 0.02), { mass: 9 * pm, att: rim(3, 3, 0.5), yld: 0.5, glass: true });
+    const rg0 = d.bed ? 3 : 2.5;
+    addPanel('rearGlass', 3, 3, (r, c) => topAt(rg0 + c * (4 - rg0) / 2, r / 2, 0.02), { mass: 7 * pm, att: rim(3, 3, 0.5), yld: 0.5, glass: true });
     const bumper = (end, dir) => (r, c) => {
       const x = (c / 4 * 2 - 1) * (WB[end] * 0.98), u = Math.abs(x) / WB[end];
       return [x, YF[end] + (r === 0 ? 0.03 : 0.22), Z[end] + dir * (0.07 - 0.2 * u * u)];
@@ -358,29 +357,30 @@ export class Car {
     const quads = [];
     const nearestStation = (z) => { let bs = 0, bd = 1e9; for (let s = 0; s < NSTA; s++) { const dd = Math.abs(Z[s] - z); if (dd < bd) { bd = dd; bs = s; } } return bs; };
     for (const p of panelDefs) {
-      const tang = [], back = [], nodes = [];
+      const tang = [], back = [], nodes = [], grid = [];
       for (let r = 0; r < p.rows; r++) for (let c = 0; c < p.cols; c++) {
         const i = p.idx[r][c]; nodes.push(i);
         // soft backing spring to the centre-line spine: gives every panel node real support normal to the surface
         // (so panels can't sag like cloth), dents plastically, and snaps when the panel is pulled off
         const as = p.anchorSt !== undefined ? p.anchorSt : nearestStation(lz[i]);
-        back.push(addW(i, CORE + as, 140, 0.25, 0.06, 0.15, 0, 2));
+        back.push(addW(i, CORE + as, 140, 1.0, 0.06, 0.15, 0, 2));
         const strength = p.att(r, c);
         if (strength > 0) {
           for (const j of nearestRing(i, strength >= 0.65 ? 3 : 2)) {
-            tang.push(addW(i, j, 140 * strength, 0.15, 0.03, 0.06 + 0.15 * strength, 0, 2));
+            tang.push(addW(i, j, 140 * strength, 0.8, 0.03, 0.06 + 0.12 * strength, 0, 2));
           }
         }
-        // grid beams to right / below / both diagonals
-        if (c + 1 < p.cols) addW(i, p.idx[r][c + 1], 260, 0.3, p.yld, 0.5, 1, 1);
-        if (r + 1 < p.rows) addW(i, p.idx[r + 1][c], 260, 0.3, p.yld, 0.5, 1, 1);
+        // grid beams to right / below / both diagonals (glass: stiffer, brittle, never yields - it cracks then shatters)
+        const wg = p.glass ? 330 : 300, zg = 0.8, gk = p.glass ? 6 : 1, gy = p.yld;
+        if (c + 1 < p.cols) grid.push(addW(i, p.idx[r][c + 1], wg, zg, gy, 0.5, 1, gk));
+        if (r + 1 < p.rows) grid.push(addW(i, p.idx[r + 1][c], wg, zg, gy, 0.5, 1, gk));
         if (r + 1 < p.rows && c + 1 < p.cols) {
-          addW(i, p.idx[r + 1][c + 1], 230, 0.3, p.yld, 0.5, 1, 1);
-          addW(p.idx[r][c + 1], p.idx[r + 1][c], 230, 0.3, p.yld, 0.5, 1, 1);
-          quads.push({ q: [i, p.idx[r][c + 1], p.idx[r + 1][c + 1], p.idx[r + 1][c]], col: 'paint', panel: this.panels.length });
+          grid.push(addW(i, p.idx[r + 1][c + 1], wg * 0.9, zg, gy, 0.5, 1, gk));
+          grid.push(addW(p.idx[r][c + 1], p.idx[r + 1][c], wg * 0.9, zg, gy, 0.5, 1, gk));
+          quads.push({ q: [i, p.idx[r][c + 1], p.idx[r + 1][c + 1], p.idx[r + 1][c]], col: p.glass ? 'glass' : 'paint', panel: this.panels.length });
         }
       }
-      this.panels.push({ name: p.name, nodes, attach: back.concat(tang), tang, back, gone: false, lost: false });
+      this.panels.push({ name: p.name, nodes, attach: back.concat(tang), tang, back, grid, glass: !!p.glass, rows: p.rows, cols: p.cols, gone: false, lost: false, crack: 0, deb: null });
     }
     this.faces = chassisFaces(d.bed).concat(quads);
 
@@ -422,7 +422,8 @@ export class Car {
     this.gear = 1; this.rpm = 900; this.shiftT = 0; this.reverse = false; this.throttle = 0; this.braking = 0;
     this.airborne = false; this.bodyHit = false; this.groundedCount = 0;
     this.sparks = []; this.breaks = []; this.lostParts = 0; this.lostEvents = [];
-    this.dead = new Uint8Array(NN);
+    this.dead = new Uint8Array(NN); this.debris = [];
+    this.rx = new Float32Array(NN); this.ry = new Float32Array(NN); this.rz = new Float32Array(NN);
     this.nodeDmg = new Float32Array(NN);
     this.nearObs = [];
     this._n = [0, 1, 0]; this._F = [0, 0, 0]; this._tl = 0;
@@ -459,7 +460,8 @@ export class Car {
     }
     this.bL0.set(this.bL00); this.byield.set(this.byield0); this.broken.fill(0); this.strain.fill(0); this.nodeDmg.fill(0);
     for (const sv of this.struts) this.bL0[sv.q] = this.bL00[sv.q];
-    for (const p of this.panels) { p.lost = false; p.gone = false; }
+    for (const p of this.panels) { p.lost = false; p.gone = false; p.crack = 0; p.deb = null; }
+    this.debris.length = 0;
     this.dead.fill(0);
     this.lostParts = 0; this.breaks.length = 0; this.lostEvents.length = 0;
     this.steerAngle = 0; this.plastic = 0; this.acc = 0; this.gear = 1; this.rpm = 900; this.shiftT = 0;
@@ -519,22 +521,97 @@ export class Car {
     return out;
   }
 
-  // a panel that has lost its mounts (hinges/latches gone, or pulled off its backing) falls away from the car
+  // a panel that has lost its mounts falls away as a rigid piece of debris; glass cracks as it is strained, then shatters
   checkPanels() {
     for (const p of this.panels) {
       if (p.gone) continue;
+      if (p.glass) {
+        let mx = 0; for (const q of p.grid) { const a = Math.abs(this.strain[q]); if (a > mx) mx = a; }
+        p.crack = Math.max(p.crack, Math.min(1, mx / 0.04));
+      }
       let ti = 0, bi = 0;
       for (const q of p.tang) if (!this.broken[q]) ti++;
       for (const q of p.back) if (!this.broken[q]) bi++;
-      if ((p.tang.length && ti <= p.tang.length * 0.34) || bi <= p.back.length * 0.34) this.dropPanel(p);
+      if (p.glass) { if (p.crack >= 1 || ti <= p.tang.length * 0.2 || bi <= p.back.length * 0.2) this.dropPanel(p); }
+      else if ((p.tang.length && ti <= p.tang.length * 0.5) || bi <= p.back.length * 0.34) this.dropPanel(p);
     }
   }
   dropPanel(p) {
     p.gone = true;
-    for (const i of p.nodes) { this.dead[i] = 1; this.vx[i] = this.vy[i] = this.vz[i] = 0; }
+    const { px, py, pz, vx, vy, vz, m } = this, nodes = p.nodes, n = nodes.length;
+    let M = 0, cx = 0, cy = 0, cz = 0, mx = 0, my = 0, mz = 0;
+    for (const i of nodes) { M += m[i]; cx += px[i] * m[i]; cy += py[i] * m[i]; cz += pz[i] * m[i]; mx += vx[i] * m[i]; my += vy[i] * m[i]; mz += vz[i] * m[i]; }
+    cx /= M; cy /= M; cz /= M; mx /= M; my /= M; mz /= M;
+    const local = new Float32Array(n * 3);
+    let Lx = 0, Ly = 0, Lz = 0, Ir = 0;
+    nodes.forEach((i, k) => {
+      const rx = px[i] - cx, ry = py[i] - cy, rz = pz[i] - cz, ux = vx[i] - mx, uy = vy[i] - my, uz = vz[i] - mz;
+      local[k * 3] = rx; local[k * 3 + 1] = ry; local[k * 3 + 2] = rz;
+      Lx += m[i] * (ry * uz - rz * uy); Ly += m[i] * (rz * ux - rx * uz); Lz += m[i] * (rx * uy - ry * ux);
+      Ir += m[i] * (rx * rx + ry * ry + rz * rz);
+    });
+    const I = Math.max(0.05, Ir * 0.7);
+    if (!p.glass) {
+      if (this.debris.length >= 18) { const o = this.debris.shift(); o.panel.deb = null; }
+      const deb = { panel: p, pos: [cx, cy, cz], vel: [mx, my, mz], q: [0, 0, 0, 1], w: [Lx / I, Ly / I, Lz / I], local, I, m: M, n, still: 0, sleep: false };
+      p.deb = deb; this.debris.push(deb);
+    }
+    for (const i of nodes) { this.dead[i] = 1; this.vx[i] = this.vy[i] = this.vz[i] = 0; }
     for (let q = 0; q < this.NB; q++) if (this.dead[this.ba[q]] || this.dead[this.bb[q]]) this.broken[q] = 1;
-    const i = p.nodes[(p.nodes.length / 2) | 0];
-    if (this.lostEvents.length < 12) this.lostEvents.push([this.px[i], this.py[i], this.pz[i], p.name]);
+    if (this.lostEvents.length < 12) this.lostEvents.push([cx, cy, cz, p.name, p.glass ? 1 : 0, mx, my, mz]);
+  }
+
+  // rigid-body motion of detached panels (point contacts against ground and obstacles)
+  stepDebris(near, dt) {
+    const F = this._F;
+    for (const d of this.debris) {
+      if (d.sleep) continue;
+      const [qx, qy, qz, qw] = d.q;
+      const r00 = 1 - 2 * (qy * qy + qz * qz), r01 = 2 * (qx * qy - qz * qw), r02 = 2 * (qx * qz + qy * qw);
+      const r10 = 2 * (qx * qy + qz * qw), r11 = 1 - 2 * (qx * qx + qz * qz), r12 = 2 * (qy * qz - qx * qw);
+      const r20 = 2 * (qx * qz - qy * qw), r21 = 2 * (qy * qz + qx * qw), r22 = 1 - 2 * (qx * qx + qy * qy);
+      const mp = d.m / d.n, kk = mp * 20000, cc = 2 * 0.5 * Math.sqrt(kk * mp);
+      let Fx = -d.vel[0] * 0.6, Fy = -G * d.m - d.vel[1] * 0.6, Fz = -d.vel[2] * 0.6, Tx = 0, Ty = 0, Tz = 0;
+      const [wx, wy, wz] = d.w;
+      for (let k = 0; k < d.n; k++) {
+        const lx = d.local[k * 3], ly = d.local[k * 3 + 1], lz = d.local[k * 3 + 2];
+        const rx = r00 * lx + r01 * ly + r02 * lz, ry = r10 * lx + r11 * ly + r12 * lz, rz = r20 * lx + r21 * ly + r22 * lz;
+        const pvx = d.vel[0] + wy * rz - wz * ry, pvy = d.vel[1] + wz * rx - wx * rz, pvz = d.vel[2] + wx * ry - wy * rx;
+        if (this.contact(d.pos[0] + rx, d.pos[1] + ry, d.pos[2] + rz, pvx, pvy, pvz, 0.04, mp, 0.45, false, near, kk, cc, d.pos)) {
+          Fx += F[0]; Fy += F[1]; Fz += F[2];
+          Tx += ry * F[2] - rz * F[1]; Ty += rz * F[0] - rx * F[2]; Tz += rx * F[1] - ry * F[0];
+          if (this._tl > 3 && this.sparks.length < 24 && Math.random() < 0.002) this.sparks.push([d.pos[0] + rx, d.pos[1] + ry, d.pos[2] + rz, this._tl]);
+        }
+      }
+      d.vel[0] += Fx / d.m * dt; d.vel[1] += Fy / d.m * dt; d.vel[2] += Fz / d.m * dt;
+      const dmp = 1 - 0.8 * dt;
+      d.w[0] = (d.w[0] + Tx / d.I * dt) * dmp; d.w[1] = (d.w[1] + Ty / d.I * dt) * dmp; d.w[2] = (d.w[2] + Tz / d.I * dt) * dmp;
+      d.pos[0] += d.vel[0] * dt; d.pos[1] += d.vel[1] * dt; d.pos[2] += d.vel[2] * dt;
+      const hx = d.w[0] * dt * 0.5, hy = d.w[1] * dt * 0.5, hz = d.w[2] * dt * 0.5;
+      const nx = qx + hx * qw + hy * qz - hz * qy, ny = qy + hy * qw + hz * qx - hx * qz, nz = qz + hz * qw + hx * qy - hy * qx, nw = qw - hx * qx - hy * qy - hz * qz;
+      const l = Math.hypot(nx, ny, nz, nw) || 1; d.q[0] = nx / l; d.q[1] = ny / l; d.q[2] = nz / l; d.q[3] = nw / l;
+      if (Math.hypot(d.vel[0], d.vel[1], d.vel[2]) < 0.08 && Math.hypot(d.w[0], d.w[1], d.w[2]) < 0.15) { if ((d.still += dt) > 1.5) d.sleep = true; } else d.still = 0;
+      if (!(d.pos[0] === d.pos[0]) || d.pos[1] < -20) { d.sleep = true; d.panel.deb = null; }
+    }
+  }
+
+  // world positions used for drawing (detached panels follow their rigid body, shattered glass collapses away)
+  syncRender() {
+    const { px, py, pz, rx, ry, rz } = this;
+    for (let i = 0; i < this.NN; i++) { rx[i] = px[i]; ry[i] = py[i]; rz[i] = pz[i]; }
+    for (const p of this.panels) {
+      if (!p.gone) continue;
+      const d = p.deb;
+      if (!d) { for (const i of p.nodes) rx[i] = ry[i] = rz[i] = 0; continue; }
+      const [qx, qy, qz, qw] = d.q;
+      const r00 = 1 - 2 * (qy * qy + qz * qz), r01 = 2 * (qx * qy - qz * qw), r02 = 2 * (qx * qz + qy * qw);
+      const r10 = 2 * (qx * qy + qz * qw), r11 = 1 - 2 * (qx * qx + qz * qz), r12 = 2 * (qy * qz - qx * qw);
+      const r20 = 2 * (qx * qz - qy * qw), r21 = 2 * (qy * qz + qx * qw), r22 = 1 - 2 * (qx * qx + qy * qy);
+      p.nodes.forEach((i, k) => {
+        const lx = d.local[k * 3], ly = d.local[k * 3 + 1], lz = d.local[k * 3 + 2];
+        rx[i] = d.pos[0] + r00 * lx + r01 * ly + r02 * lz; ry[i] = d.pos[1] + r10 * lx + r11 * ly + r12 * lz; rz[i] = d.pos[2] + r20 * lx + r21 * ly + r22 * lz;
+      });
+    }
   }
 
   // per-node dent amount 0..1 (for visual darkening)
@@ -814,6 +891,7 @@ export class Car {
       if (this._tl > 4 && this.sparks.length < 24 && Math.random() < 0.004) this.sparks.push([x, y, z, this._tl]);
     }
 
+    this.stepDebris(near, dt);
     // balls
     this.stepBalls(near, dt);
 

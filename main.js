@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Car, VEHICLES, OBSTACLES, TREES, BALLS, RAMPS, terrainHeight, onRamp, resetBalls, WORLD_HALF, st as stn, ENG } from './physics.js';
+import { Car, VEHICLES, OBSTACLES, TREES, BALLS, RAMPS, terrainHeight, onRamp, resetBalls, WORLD_HALF, st as stn, ENG, CORE as CORE_N, FUEL as FUEL_N } from './physics.js';
 import { Particles, Skids } from './fx.js';
 
 // ------------------------------------------------------------ settings
@@ -152,8 +152,8 @@ const particles = new Particles(scene);
 const skids = new Skids(scene);
 
 // ------------------------------------------------------------ car visuals
-let car, body, bodyGeo, bodyMat, triIdx, triKind, baseCol, wheelGroups = [], lines, lineGeo;
-let glassMesh, glassGeo, glassIdx = [], glassFaces = [];
+let car, body, bodyGeo, bodyMat, nodeKind, baseCol, wheelGroups = [], lines, lineGeo;
+let glassMesh, tintMesh, glassGeo, glassPanels = [], frameMesh, frameBeams = [], interior = [];
 let headMeshes = [], tailMeshes = [], headLights = [];
 const GLASS = [0.08, 0.13, 0.18], DARK = [0.06, 0.06, 0.07], PRIMER = [0.14, 0.13, 0.13];
 let showBeams = false;
@@ -161,12 +161,16 @@ let showBeams = false;
 function disposeCar() {
   if (!car) return;
   scene.remove(body); bodyGeo.dispose(); bodyMat.dispose();
-  scene.remove(glassMesh); glassGeo.dispose();
+  scene.remove(glassMesh); scene.remove(tintMesh); glassGeo.dispose();
+  scene.remove(frameMesh); frameMesh.geometry.dispose();
+  for (const it of interior) scene.remove(it.mesh);
+  for (const m of debrisMeshes) scene.remove(m);
   for (const g of wheelGroups) scene.remove(g);
   scene.remove(lines); lineGeo.dispose();
   for (const m of headMeshes.concat(tailMeshes)) scene.remove(m);
   for (const l of headLights) { scene.remove(l); scene.remove(l.target); }
 }
+const debrisMeshes = [];
 
 let _crackTex;
 function crackTexture() {
@@ -201,36 +205,78 @@ function buildCar(key) {
   settings.vehicle = key; store.set('vehicle', key);
   const paint = COLORS[settings.color] || COLORS[0];
 
-  triIdx = []; triKind = []; baseCol = [];
+  const NN = car.NN;
+  nodeKind = new Uint8Array(NN); baseCol = new Float32Array(NN * 3);
+  const bodyIdx = [], glassIdxArr = [];
   for (const f of car.faces) {
     const [a, b, c, d] = f.q;
-    const col = f.col === 'paint' ? paint : f.col === 'glass' ? GLASS : f.col === 'primer' ? PRIMER : DARK;
-    for (const t of [[a, b, c], [a, c, d]]) for (const v of t) { triIdx.push(v); triKind.push(f.col === 'paint' ? 0 : f.col === 'glass' ? 1 : 2); baseCol.push(...col); }
+    const col = f.col === 'paint' ? paint : f.col === 'glass' ? GLASS : DARK;
+    for (const n of f.q) { baseCol.set(col, n * 3); nodeKind[n] = f.col === 'paint' ? 0 : f.col === 'glass' ? 1 : 2; }
+    (f.col === 'glass' ? glassIdxArr : bodyIdx).push(a, b, c, a, c, d);
   }
   bodyGeo = new THREE.BufferGeometry();
-  bodyGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(triIdx.length * 3), 3));
+  const posAttr = new THREE.BufferAttribute(new Float32Array(NN * 3), 3);
+  bodyGeo.setAttribute('position', posAttr);
   bodyGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(baseCol), 3));
-  bodyMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide, roughness: 0.4, metalness: 0.35, transparent: showBeams, opacity: showBeams ? 0.3 : 1 });
+  bodyGeo.setIndex(bodyIdx);
+  bodyMat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.38, metalness: 0.4, transparent: showBeams, opacity: showBeams ? 0.3 : 1 });
   body = new THREE.Mesh(bodyGeo, bodyMat);
   body.castShadow = true; body.frustumCulled = false;
   scene.add(body);
 
-  // windows: crack overlay whose opacity follows the damage around each pane
-  glassFaces = car.faces.filter((f) => f.col === 'glass');
-  glassIdx = [];
-  const gUV = [];
-  for (const f of glassFaces) {
-    const [a, b, c, d] = f.q;
-    const uv = [[0, 0], [1, 0], [1, 1], [0, 1]];
-    for (const t of [[0, 1, 2], [0, 2, 3]]) for (const k of t) { glassIdx.push([a, b, c, d][k]); gUV.push(uv[k][0], uv[k][1]); }
-  }
+  // glass: tinted see-through panes + a crack overlay whose strength follows how strained each pane is
   glassGeo = new THREE.BufferGeometry();
-  glassGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(glassIdx.length * 3), 3));
-  glassGeo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(gUV), 2));
-  glassGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(glassIdx.length * 4), 4));
+  glassGeo.setAttribute('position', posAttr);
+  const gUV = new Float32Array(NN * 2);
+  glassPanels = car.panels.filter((p) => p.glass);
+  for (const p of glassPanels) p.nodes.forEach((n, k) => { const r = Math.floor(k / p.cols), c = k % p.cols; gUV[n * 2] = c / (p.cols - 1); gUV[n * 2 + 1] = r / (p.rows - 1); });
+  glassGeo.setAttribute('uv', new THREE.BufferAttribute(gUV, 2));
+  glassGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(NN * 4), 4));
+  glassGeo.setIndex(glassIdxArr);
+  tintMesh = new THREE.Mesh(glassGeo, new THREE.MeshPhongMaterial({ color: 0x1b2c3a, transparent: true, opacity: 0.38, specular: 0xffffff, shininess: 120, depthWrite: false, side: THREE.DoubleSide }));
+  tintMesh.frustumCulled = false; tintMesh.renderOrder = 2;
   glassMesh = new THREE.Mesh(glassGeo, new THREE.MeshBasicMaterial({ map: crackTexture(), vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   glassMesh.frustumCulled = false; glassMesh.renderOrder = 3;
-  scene.add(glassMesh);
+  scene.add(tintMesh, glassMesh);
+
+  // exposed frame: ring edges and rails as steel tubes (hidden under the panels until they come off)
+  const bmap = new Map();
+  for (let q = 0; q < car.NB; q++) bmap.set(Math.min(car.ba[q], car.bb[q]) * 4096 + Math.max(car.ba[q], car.bb[q]), q);
+  frameBeams = [];
+  const addFB = (a, b, w) => { const q = bmap.get(Math.min(a, b) * 4096 + Math.max(a, b)); if (q !== undefined) frameBeams.push({ a, b, q, w }); };
+  for (let sIdx = 0; sIdx < 12; sIdx++) {
+    for (let k = 0; k < 5; k++) addFB(stn(sIdx, k), stn(sIdx, k + 1), 0.05);
+    if (sIdx < 11) for (let k = 0; k < 6; k++) addFB(stn(sIdx, k), stn(sIdx + 1, k), k === 0 || k === 5 ? 0.07 : 0.045);
+  }
+  frameMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0x3a3d42, metalness: 0.7, roughness: 0.5 }), frameBeams.length);
+  frameMesh.frustumCulled = false; frameMesh.castShadow = true; frameMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  scene.add(frameMesh);
+
+  // interior and mechanicals, anchored to the spine nodes so they move with the crumpling shell
+  const d = car.def, Zs = d.Z, bx = (w, h, l, color, met) => new THREE.Mesh(new THREE.BoxGeometry(w, h, l), new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: met || 0 }));
+  interior = [];
+  const nearSt = (z) => { let bs = 0, bd = 1e9; for (let i = 0; i < 12; i++) { const dd = Math.abs(Zs[i] - z); if (dd < bd) { bd = dd; bs = i; } } return bs; };
+  const addIt = (mesh, x, y, z, tilt = 0, node = -1) => {
+    const anchor = node >= 0 ? node : CORE_N + nearSt(z);
+    const off = node >= 0 ? [0, 0, 0] : [x, y - car.ly[anchor], z - car.lz[anchor]];
+    mesh.castShadow = false; mesh.frustumCulled = false; scene.add(mesh);
+    interior.push({ mesh, anchor, off, tq: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), tilt) });
+  };
+  const SEAT = 0x2b2b30, TRIM = 0x1b1b1f;
+  const zf = Zs[5] - 0.1, zr = Zs[3] + 0.15, yf = d.YF[5] + 0.3, yr = d.YF[3] + 0.3;
+  for (const sx of [0.36, -0.36]) {
+    addIt(bx(0.46, 0.14, 0.5, SEAT), sx, yf, zf); addIt(bx(0.46, 0.55, 0.11, SEAT), sx, yf + 0.3, zf - 0.27, -0.15);
+  }
+  addIt(bx(1.3, 0.14, 0.45, SEAT), 0, yr, zr); addIt(bx(1.3, 0.5, 0.1, SEAT), 0, yr + 0.27, zr - 0.25, -0.15);
+  const zd = Zs[7] + 0.2, yd = d.YB[7] - 0.03;
+  addIt(bx(1.35, 0.24, 0.36, TRIM), 0, yd, zd);
+  addIt(bx(1.3, 0.05, 0.3, 0x2a2a30), 0, yd + 0.14, zd - 0.02);
+  const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.022, 8, 20), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.7 }));
+  addIt(wheel, 0.36, yd + 0.02, zd - 0.28, -1.05);
+  addIt(bx(0.72, 0.5, 0.62, 0x72777c, 0.6), 0, 0, 0, 0, ENG);
+  addIt(bx(0.7, 0.2, 0.45, 0x2c2f31, 0.2), 0, 0, 0, 0, FUEL_N);
+  addIt(bx(1.1, 0.45, 0.07, 0x1d1d20), 0, (d.YF[10] + d.YB[10]) / 2, Zs[10] + 0.4);
+  addIt(bx(0.4, 0.14, 1.6, 0x4a4d50, 0.5), 0, d.YF[4] - 0.02, (Zs[3] + Zs[5]) / 2);
 
   const WR = car.WR;
   wheelGroups = car.wheels.map(() => {
@@ -269,33 +315,51 @@ let frameCount = 0;
 
 function nodePos(i) { return new THREE.Vector3(car.px[i], car.py[i], car.pz[i]); }
 
+const _d = new THREE.Object3D(), _qa = new THREE.Quaternion(), _pa = new THREE.Vector3(), _pb = new THREE.Vector3();
+function updateDebrisMeshes() {
+  // each detached panel is drawn by the main body mesh (positions come from its rigid body), nothing extra needed
+}
 function updateVisuals() {
-  const bp = bodyGeo.attributes.position.array;
-  for (let i = 0; i < triIdx.length; i++) {
-    const n = triIdx[i];
-    bp[i * 3] = car.px[n]; bp[i * 3 + 1] = car.py[n]; bp[i * 3 + 2] = car.pz[n];
-  }
+  car.syncRender();
+  const bp = bodyGeo.attributes.position.array, NN = car.NN;
+  for (let n = 0; n < NN; n++) { bp[n * 3] = car.rx[n]; bp[n * 3 + 1] = car.ry[n]; bp[n * 3 + 2] = car.rz[n]; }
   bodyGeo.attributes.position.needsUpdate = true;
   bodyGeo.computeVertexNormals();
-  const gp = glassGeo.attributes.position.array;
-  for (let i = 0; i < glassIdx.length; i++) { const n = glassIdx[i]; gp[i * 3] = car.px[n]; gp[i * 3 + 1] = car.py[n]; gp[i * 3 + 2] = car.pz[n]; }
-  glassGeo.attributes.position.needsUpdate = true;
+  glassGeo.computeVertexNormals();
 
-  if (frameCount % 6 === 0) {   // dent colouring: scorch paint, whiten cracked glass
+  if (frameCount % 4 === 0) {   // dent colouring and glass cracks
     const nd = car.updateNodeDamage(), cc = bodyGeo.attributes.color.array;
-    for (let i = 0; i < triIdx.length; i++) {
-      const d = nd[triIdx[i]], kind = triKind[i];
-      const tr = kind === 1 ? [0.75, 0.8, 0.85] : [0.08, 0.07, 0.07];
-      const s = Math.min(1, d * (kind === 1 ? 1.2 : 0.8));
-      for (let c = 0; c < 3; c++) cc[i * 3 + c] = baseCol[i * 3 + c] * (1 - s) + tr[c] * s;
+    for (let n = 0; n < NN; n++) {
+      if (nodeKind[n] === 1) continue;
+      const dm = nd[n], s = Math.min(1, dm * 0.8), tr = 0.08;
+      for (let c = 0; c < 3; c++) cc[n * 3 + c] = baseCol[n * 3 + c] * (1 - s) + tr * s;
     }
     bodyGeo.attributes.color.needsUpdate = true;
     const gc = glassGeo.attributes.color.array;
-    glassFaces.forEach((f, fi) => {
-      const dm = (nd[f.q[0]] + nd[f.q[1]] + nd[f.q[2]] + nd[f.q[3]]) / 4, al = Math.min(1, Math.max(0, (dm - 0.04) * 3.5));
-      for (let v = 0; v < 6; v++) { const o = (fi * 6 + v) * 4; gc[o] = gc[o + 1] = gc[o + 2] = 1; gc[o + 3] = al; }
-    });
+    for (const p of glassPanels) {
+      const al = Math.min(1, Math.max(0, (p.crack - 0.08) * 1.5));
+      for (const n of p.nodes) { gc[n * 4] = gc[n * 4 + 1] = gc[n * 4 + 2] = 1; gc[n * 4 + 3] = al; }
+    }
     glassGeo.attributes.color.needsUpdate = true;
+  }
+
+  // steel frame
+  frameBeams.forEach((f, i) => {
+    if (car.broken[f.q]) { _d.scale.set(0, 0, 0); _d.updateMatrix(); frameMesh.setMatrixAt(i, _d.matrix); return; }
+    _pa.set(car.px[f.a], car.py[f.a], car.pz[f.a]); _pb.set(car.px[f.b], car.py[f.b], car.pz[f.b]);
+    _d.position.copy(_pa).add(_pb).multiplyScalar(0.5); _d.lookAt(_pb); _d.scale.set(f.w, f.w, _pa.distanceTo(_pb)); _d.updateMatrix();
+    frameMesh.setMatrixAt(i, _d.matrix);
+  });
+  frameMesh.instanceMatrix.needsUpdate = true;
+  // interior / engine follow the shell
+  {
+    const L = V(car.left), U = V(car.up), F = V(car.fwd);
+    _m.makeBasis(L, U, F); _qa.setFromRotationMatrix(_m);
+    for (const it of interior) {
+      const a = it.anchor;
+      it.mesh.position.set(car.px[a], car.py[a], car.pz[a]).addScaledVector(L, it.off[0]).addScaledVector(U, it.off[1]).addScaledVector(F, it.off[2]);
+      it.mesh.quaternion.copy(_qa).multiply(it.tq);
+    }
   }
 
   const fwd = V(car.fwd), left = V(car.left), up = V(car.up);
@@ -356,7 +420,31 @@ function updateFx(dt, inp) {
   for (const s of car.sparks) {
     for (let i = 0; i < 5; i++) particles.emit(s[0], s[1], s[2], (Math.random() - 0.5) * 8, Math.random() * 5, (Math.random() - 0.5) * 8, 0.45, 0.12, -0.3, 1, 0.65, 0.2, 1, -14);
   }
+  for (const e of car.lostEvents) {          // panels tearing off, glass shattering
+    const [x, y, z, , isGlass, vx, vy, vz] = e, R = Math.random;
+    if (isGlass) {
+      for (let i = 0; i < 46; i++) particles.emit(x + (R() - 0.5) * 0.7, y + (R() - 0.5) * 0.4, z + (R() - 0.5) * 0.7, vx * 0.7 + (R() - 0.5) * 5, vy + R() * 3, vz * 0.7 + (R() - 0.5) * 5, 1.1 + R() * 0.8, 0.06 + R() * 0.05, -0.2, 0.75 + R() * 0.25, 0.9, 1, 1, -14);
+      for (let i = 0; i < 5; i++) particles.emit(x, y, z, (R() - 0.5) * 2, R() * 1.2, (R() - 0.5) * 2, 0.9, 0.4, 2.5, 0.85, 0.92, 1, 0.25, 0.2);
+      crunch(0.1);
+    } else {
+      for (let i = 0; i < 8; i++) particles.emit(x + (R() - 0.5) * 0.6, y, z + (R() - 0.5) * 0.6, vx * 0.4 + (R() - 0.5) * 3, 0.5 + R() * 2, vz * 0.4 + (R() - 0.5) * 3, 1.4, 0.7, 3, 0.55, 0.5, 0.45, 0.4, 0.3);
+      for (let i = 0; i < 14; i++) particles.emit(x, y, z, (R() - 0.5) * 9, R() * 6, (R() - 0.5) * 9, 0.5, 0.1, -0.3, 1, 0.7, 0.25, 1, -14);
+      crunch(0.12);
+    }
+  }
+  if (car.plastic > 0.06) {                  // crumple dust cloud at the nose or tail, whichever is hurting
+    const front = car.forwardSpeed >= 0 ? stn(11, 2) : stn(0, 2);
+    for (let i = 0; i < 3; i++) particles.emit(car.px[front] + (Math.random() - 0.5) * 0.8, car.py[front] - 0.2, car.pz[front] + (Math.random() - 0.5) * 0.8, (Math.random() - 0.5) * 3, 0.4 + Math.random() * 1.2, (Math.random() - 0.5) * 3, 1.3, 0.6, 3.5, 0.6, 0.58, 0.55, 0.3, 0.3);
+  }
   const dmg = car.damage;
+  if (dmg > 12 && Math.random() < Math.min(1, dt * dmg * 0.5)) {   // coolant steam
+    const p = nodePos(ENG).addScaledVector(V(car.up), 0.4);
+    particles.emit(p.x, p.y, p.z, (Math.random() - 0.5) * 0.5, 1.3 + Math.random(), (Math.random() - 0.5) * 0.5, 1.7, 0.4, 3.5, 0.93, 0.95, 0.97, 0.35, 0.3);
+  }
+  if (dmg > 25 && Math.random() < dt * 25) {                       // oil dripping out of the sump
+    const p = nodePos(ENG);
+    particles.emit(p.x + (Math.random() - 0.5) * 0.3, p.y - 0.25, p.z + (Math.random() - 0.5) * 0.3, car.vcom[0] * 0.5, 0, car.vcom[2] * 0.5, 0.7, 0.07, 0, 0.08, 0.06, 0.03, 0.9, -9);
+  }
   if (dmg > 30 && Math.random() < Math.min(1, dt * (dmg - 20) * 0.6)) {
     const p = nodePos(ENG).addScaledVector(V(car.up), 0.55);
     particles.emit(p.x, p.y + 0.2, p.z, (Math.random() - 0.5) * 0.6, 1.8 + Math.random(), (Math.random() - 0.5) * 0.6, 2.2, 0.6, 4, 0.25, 0.25, 0.27, 0.5, 0.3);
@@ -365,9 +453,10 @@ function updateFx(dt, inp) {
     const p = nodePos(ENG).addScaledVector(V(car.up), 0.55);
     particles.emit(p.x, p.y + 0.15, p.z, (Math.random() - 0.5) * 0.8, 2 + Math.random() * 1.5, (Math.random() - 0.5) * 0.8, 0.7, 0.55, -0.4, 1, 0.5 + Math.random() * 0.3, 0.1, 0.8, 1.5);
   }
-  for (let i = 0; i < car.breaks.length && i < 8; i++) {   // metal tearing off: sparks and a puff of dust
+  for (let i = 0; i < car.breaks.length && i < 10; i++) {   // metal tearing off: sparks and a puff of dust
     const b = car.breaks[i];
     for (let k = 0; k < 3; k++) particles.emit(b[0], b[1], b[2], (Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6, 0.5, 0.1, -0.3, 1, 0.7, 0.25, 1, -14);
+    for (let k = 0; k < 6; k++) particles.emit(b[0], b[1], b[2], car.vcom[0] * 0.3 + (Math.random() - 0.5) * 7, Math.random() * 5, car.vcom[2] * 0.3 + (Math.random() - 0.5) * 7, 1.6 + Math.random(), 0.07 + Math.random() * 0.06, -0.2, 0.12, 0.12, 0.13, 1, -12);
     if (i % 2 === 0) particles.emit(b[0], b[1], b[2], (Math.random() - 0.5), 0.6, (Math.random() - 0.5), 1.0, 0.5, 2.5, 0.6, 0.6, 0.6, 0.3, 0.3);
   }
   particles.update(dt);

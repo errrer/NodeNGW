@@ -8,7 +8,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem('nodengw.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('nodengw.' + k, JSON.stringify(v)); } catch (e) { /* ignore */ } },
 };
-const settings = { vehicle: store.get('vehicle', 'sedan'), color: store.get('color', 0), time: store.get('time', 'day') };
+const settings = { vehicle: store.get('vehicle', 'sedan'), color: store.get('color', 0), time: store.get('time', 'day'), quality: store.get('quality', 'high'), units: store.get('units', 'kmh') };
 if (!VEHICLES[settings.vehicle]) settings.vehicle = 'sedan';
 const best = store.get('best', { jump: 0, air: 0, speed: 0 });
 
@@ -32,6 +32,17 @@ sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 260 });
 sun.shadow.bias = -0.0004;
 scene.add(hemi, sun, sun.target);
+
+const QUALITY = { low: { pr: 1, shadow: false, map: 512 }, med: { pr: 1.5, shadow: true, map: 1024 }, high: { pr: 2, shadow: true, map: 2048 } };
+function applyQuality(name) {
+  const q = QUALITY[name] || QUALITY.high; settings.quality = name in QUALITY ? name : 'high'; store.set('quality', settings.quality);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, q.pr)); renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = q.shadow; sun.castShadow = q.shadow;
+  if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+  sun.shadow.mapSize.set(q.map, q.map);
+  scene.traverse((o) => { if (o.material) { const ms = Array.isArray(o.material) ? o.material : [o.material]; for (const m of ms) m.needsUpdate = true; } });
+}
+const speedVal = (ms) => ms * (settings.units === 'mph' ? 2.23694 : 3.6);
 
 // sky dome
 const skyMat = new THREE.ShaderMaterial({
@@ -433,7 +444,7 @@ function updateVisuals() {
     tailMeshes[side].position.copy(t);
     const mat = tailMeshes[side].material;
     mat.color.set(car.braking > 0.1 ? 0xff2a2a : car.reverse ? 0xffffff : 0x701010);
-    headLights[side].intensity = nightMode ? 60 : 0;
+    headLights[side].intensity = (nightMode || lightsOn) ? 60 : 0;
   }
 
   if (lines.visible) {
@@ -530,6 +541,19 @@ function setMouseCam(on) {
 function setBeams(on) {
   showBeams = on; lines.visible = on; bodyMat.transparent = on; bodyMat.opacity = on ? 0.3 : 1; bodyMat.needsUpdate = true;
 }
+let lightsOn = false;
+function upright() { car.recover(); toast('Flipped upright (damage kept)'); }
+let hornNodes = null;
+function hornOn() {
+  if (!ac || hornNodes) return;
+  const g = ac.createGain(); g.gain.value = 0.07; g.connect(ac.destination);
+  hornNodes = [420, 525].map((f) => { const o = ac.createOscillator(); o.type = 'square'; o.frequency.value = f; o.connect(g); o.start(); return o; }); hornNodes.push(g);
+}
+function hornOff() { if (!hornNodes) return; hornNodes[0].stop(); hornNodes[1].stop(); hornNodes[2].disconnect(); hornNodes = null; }
+function photo() {
+  renderer.render(scene, camera);
+  const a = document.createElement('a'); a.href = renderer.domElement.toDataURL('image/png'); a.download = 'nodengw-' + Date.now() + '.png'; a.click(); toast('Screenshot saved');
+}
 function respawn() { car.reset(car.com[0], car.com[2], car.yaw); }
 function toStart() { car.reset(0, 0, 0); resetBalls(); }
 
@@ -544,10 +568,14 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyM') setMouseCam(!mouseCam);
   if (e.code === 'KeyB') setBeams(!showBeams);
   if (e.code === 'KeyV') slow = !slow;
+  if (e.code === 'KeyU') upright();
+  if (e.code === 'KeyH') hornOn();
+  if (e.code === 'KeyL') { lightsOn = !lightsOn; toast('Headlights ' + (lightsOn ? 'on' : 'auto')); }
+  if (e.code === 'KeyK') photo();
   if (e.code === 'KeyN') applyTime(settings.time === 'day' ? 'sunset' : settings.time === 'sunset' ? 'night' : 'day');
   if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
 });
-addEventListener('keyup', (e) => { keys[e.code] = false; });
+addEventListener('keyup', (e) => { keys[e.code] = false; if (e.code === 'KeyH') hornOff(); });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
 const cvs = renderer.domElement;
@@ -569,6 +597,8 @@ for (const b of document.querySelectorAll('[data-t]')) {
   b.addEventListener('touchstart', on, { passive: false }); b.addEventListener('touchend', off); b.addEventListener('touchcancel', off);
   b.addEventListener('mousedown', on); b.addEventListener('mouseup', off); b.addEventListener('mouseleave', off);
 }
+document.getElementById('btnFix').onclick = () => { if (!paused) upright(); };
+document.getElementById('btnPhoto').onclick = () => { if (!paused) photo(); };
 document.getElementById('btnReset').onclick = () => { if (!paused) respawn(); };
 document.getElementById('btnCam').onclick = () => { camMode = (camMode + 1) % 3; if (mouseCam) setMouseCam(false); };
 document.getElementById('btnMouse').onclick = () => setMouseCam(!mouseCam);
@@ -667,7 +697,7 @@ function drawGauge() {
   const S = gauge.width, c = gctx, cx = S / 2, cy = S / 2, R = S / 2 - 10;
   c.clearRect(0, 0, S, S);
   c.fillStyle = 'rgba(0,0,0,0.55)'; c.beginPath(); c.arc(cx, cy, R + 6, 0, 7); c.fill();
-  const a0 = Math.PI * 0.75, sweep = Math.PI * 1.5, kmh = car.speed * 3.6, vmax = 260;
+  const a0 = Math.PI * 0.75, sweep = Math.PI * 1.5, kmh = speedVal(car.speed), vmax = settings.units === 'mph' ? 160 : 260;
   c.lineWidth = 8; c.lineCap = 'round';
   c.strokeStyle = 'rgba(255,255,255,0.15)'; c.beginPath(); c.arc(cx, cy, R - 6, a0, a0 + sweep); c.stroke();
   c.strokeStyle = '#4cc9f0'; c.beginPath(); c.arc(cx, cy, R - 6, a0, a0 + sweep * Math.min(1, kmh / vmax)); c.stroke();
@@ -675,7 +705,7 @@ function drawGauge() {
   c.strokeStyle = rp > 0.85 ? '#ff4d4d' : '#ffd166'; c.beginPath(); c.arc(cx, cy, R - 20, a0, a0 + sweep * rp); c.stroke();
   c.fillStyle = '#fff'; c.textAlign = 'center';
   c.font = '700 40px system-ui'; c.fillText(Math.round(kmh), cx, cy + 6);
-  c.font = '12px system-ui'; c.fillStyle = '#bbb'; c.fillText('km/h', cx, cy + 24);
+  c.font = '12px system-ui'; c.fillStyle = '#bbb'; c.fillText(settings.units === 'mph' ? 'mph' : 'km/h', cx, cy + 24);
   c.font = '700 26px system-ui'; c.fillStyle = '#ffd166'; c.fillText(car.gearLabel, cx, cy + 58);
   c.font = '11px system-ui'; c.fillStyle = '#bbb'; c.fillText(Math.round(car.rpm / 100) * 100 + ' rpm', cx, cy - 30);
 }
@@ -718,9 +748,18 @@ function trackStats(dt) {
   el('dmgbar').style.width = dmg + '%';
   el('cost').textContent = '$' + Math.round(dmg * 85).toLocaleString();
   el('brk').textContent = car.brokenCount;
-  if (frameCount % 10 === 0) { const l = car.partsLost(); el('lost').textContent = l.length ? 'Parts lost: ' + l.join(', ') : 'All parts attached'; }
+  if (frameCount % 10 === 0) {
+    const l = car.partsLost(), nd = car.updateNodeDamage(), dented = [], cracked = [];
+    for (const p of car.panels) {
+      if (p.gone) continue;
+      if (p.glass) { if (p.crack > 0.25) cracked.push(p.name); continue; }
+      let a = 0; for (const i of p.nodes) a += nd[i]; if (a / p.nodes.length > 0.25) dented.push(p.name);
+    }
+    const span = (c, t, arr) => arr.length ? '<div style="color:' + c + '">' + t + ': ' + arr.join(', ') + '</div>' : '';
+    el('lost').innerHTML = (l.length || dented.length || cracked.length) ? span('#ff6b6b', 'Lost', l) + span('#ffd166', 'Cracked', cracked) + span('#f4a261', 'Dented', dented) : 'All parts attached';
+  }
   el('air').textContent = st.air ? 'AIR ' + st.t.toFixed(1) + 's' : (st.last ? 'Last jump ' + st.last.dist.toFixed(0) + ' m / ' + st.last.air.toFixed(1) + ' s' : 'Last jump -');
-  el('best').textContent = 'Best jump ' + best.jump.toFixed(0) + ' m · top speed ' + best.speed.toFixed(0) + ' km/h';
+  el('best').textContent = 'Best jump ' + best.jump.toFixed(0) + ' m · top speed ' + speedVal(best.speed / 3.6).toFixed(0) + (settings.units === 'mph' ? ' mph' : ' km/h');
 }
 
 // ------------------------------------------------------------ menu
@@ -738,6 +777,16 @@ function buildMenu() {
     b.style.background = 'rgb(' + c.map((v) => Math.round(v * 255)).join(',') + ')';
     b.onclick = () => { settings.color = i; buildMenu(); }; ch.appendChild(b);
   });
+  const qh = el('quality'); qh.innerHTML = '';
+  for (const k of ['low', 'med', 'high']) {
+    const b = document.createElement('button'); b.className = 'pill' + (settings.quality === k ? ' sel' : ''); b.textContent = k[0].toUpperCase() + k.slice(1);
+    b.onclick = () => { applyQuality(k); buildMenu(); }; qh.appendChild(b);
+  }
+  const uh = el('units'); uh.innerHTML = '';
+  for (const k of ['kmh', 'mph']) {
+    const b = document.createElement('button'); b.className = 'pill' + (settings.units === k ? ' sel' : ''); b.textContent = k === 'kmh' ? 'km/h' : 'mph';
+    b.onclick = () => { settings.units = k; store.set('units', k); buildMenu(); }; uh.appendChild(b);
+  }
   const th = el('times'); th.innerHTML = '';
   for (const k of Object.keys(TIMES)) {
     const b = document.createElement('button'); b.className = 'pill' + (settings.time === k ? ' sel' : ''); b.textContent = k[0].toUpperCase() + k.slice(1);
@@ -800,12 +849,20 @@ function updateCamera(dt) {
 const _q = new THREE.Quaternion(), _ax = new THREE.Vector3();
 let last = performance.now();
 applyTime(settings.time);
+applyQuality(settings.quality);
 buildCar(settings.vehicle); car._colorIdx = settings.color;
 toggleMenu(true);
 
+let fpsAvg = 60, lowFor = 0;
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!paused && dt > 0) {
+    fpsAvg += (1 / Math.max(dt, 0.001) - fpsAvg) * 0.05;
+    if (frameCount % 30 === 0) el('fps').textContent = Math.round(fpsAvg) + ' fps · ' + settings.quality;
+    lowFor = fpsAvg < 28 ? lowFor + dt : 0;
+    if (lowFor > 4 && settings.quality !== 'low') { applyQuality(settings.quality === 'high' ? 'med' : 'low'); toast('Slow frame rate: graphics set to ' + settings.quality); lowFor = 0; fpsAvg = 60; }
+  }
   frameCount++;
   if (!paused) {
     const inp = readInput();

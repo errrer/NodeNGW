@@ -15,7 +15,8 @@ A BeamNG-style soft-body driving sandbox that runs entirely in the browser (plai
 - **Automatic gearbox** with RPM, gear display, rev limiter, and engine / tyre-squeal / wind / crash sound.
 - **World**: ramps, a big jump, a skyline plateau drop, speed bumps, a mound, slalom pillars, crates, a crash wall, trees, and pushable balls.
 - **Effects**: dust, tyre smoke, sparks, glass shards, crash dust and flying chunks, coolant steam, oil drips, engine smoke and fire, skid marks, headlights and brake lights.
-- **Day / sunset / night**.
+- **Day / sunset / night**, graphics quality (low / med / high, auto-lowered if the frame rate drops) and km/h or mph.
+- **Damage readout** listing lost, cracked and dented parts, flip-upright without repairing, horn, headlight toggle and screenshots.
 - **HUD**: speedo + rpm gauge, gear, damage meter and repair cost, jump distance and air time (best saved in your browser), minimap.
 - **Cameras**: mouse orbit camera on by default (drag to orbit, scroll to zoom, M or the button to toggle), plus chase, bonnet and far. No shake or zoom effects.
 - Keyboard, touch buttons and gamepad.
@@ -31,7 +32,11 @@ A pole field (east), lone poles, a crate pyramid, brick wall, jersey-barrier chi
 | Space | Handbrake |
 | M (or the **Mouse cam** button) | Toggle mouse camera: drag to look around, scroll to zoom |
 | C | Cycle chase / bonnet / far camera |
-| R | Reset upright where you are |
+| R | Repair and reset where you are |
+| U | Flip upright, keeping the damage |
+| H | Horn |
+| L | Headlights on / auto |
+| K | Save a screenshot |
 | T | Back to start (also resets the balls) |
 | B | Beam skeleton view (blue = fine, red = stressed or dented) |
 | N | Cycle day / sunset / night |

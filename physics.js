@@ -554,6 +554,33 @@ export class Car {
     this.computeFrame();
   }
 
+  // set the car back on its wheels without repairing it: rotate every node upright about the centre of mass
+  recover() {
+    this.computeFrame();
+    const U = this.up, c = this.com;
+    let kx = -U[2], ky = 0, kz = U[0], l = Math.hypot(kx, kz);
+    let ang;
+    if (l < 1e-6) { kx = this.fwd[0]; ky = this.fwd[1]; kz = this.fwd[2]; ang = U[1] < 0 ? Math.PI : 0; }
+    else { kx /= l; kz /= l; ang = Math.atan2(l, U[1]); }
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+    for (let i = 0; i < this.NN; i++) {
+      if (this.dead[i]) continue;
+      const vx = this.px[i] - c[0], vy = this.py[i] - c[1], vz = this.pz[i] - c[2];
+      const dot = kx * vx + ky * vy + kz * vz;
+      const cx = ky * vz - kz * vy, cy = kz * vx - kx * vz, cz = kx * vy - ky * vx;
+      this.px[i] = c[0] + vx * ca + cx * sa + kx * dot * (1 - ca);
+      this.py[i] = c[1] + vy * ca + cy * sa + ky * dot * (1 - ca);
+      this.pz[i] = c[2] + vz * ca + cz * sa + kz * dot * (1 - ca);
+      this.vx[i] = this.vy[i] = this.vz[i] = 0;
+    }
+    let lift = 0;
+    for (let i = 0; i < NR; i++) lift = Math.max(lift, groundH(this.px[i], this.pz[i]) + 0.3 - this.py[i]);
+    for (const w of this.wheels) lift = Math.max(lift, groundH(this.px[w.i], this.pz[w.i]) + this.WR + 0.1 - this.py[w.i]);
+    for (let i = 0; i < this.NN; i++) if (!this.dead[i]) this.py[i] += lift + 0.2;
+    for (const w of this.wheels) if (w.detached) { /* loose wheels stay where they are */ }
+    this.computeFrame();
+  }
+
   computeFrame() {
     const { px, py, pz, vx, vy, vz, m } = this;
     let fx = 0, fy = 0, fz = 0, lx = 0, ly = 0, lz = 0;

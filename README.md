@@ -18,6 +18,9 @@ A BeamNG-style soft-body driving sandbox that runs entirely in the browser (plai
 - **Cameras**: mouse orbit camera on by default (drag to orbit, scroll to zoom, M or the button to toggle), plus chase, bonnet and far. No shake or zoom effects.
 - Keyboard, touch buttons and gamepad.
 
+## More to crash into
+A pole field (east), lone poles, a crate pyramid, brick wall, jersey-barrier chicane, an arch (west), heavy blocks, and a second kicker ramp. Poles are wrapped around by the nose instead of pushing through.
+
 ## Controls
 | Key | Action |
 |---|---|

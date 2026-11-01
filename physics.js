@@ -21,6 +21,7 @@ export const RAMPS = [
   { x0: -5, x1: 5, z0: 30, z1: 46, h: 3, p: 1, flat: 0 },         // small kicker
   { x0: -9, x1: 9, z0: 70, z1: 94, h: 7.5, p: 1, flat: 0 },       // big jump
   { x0: 30, x1: 50, z0: 55, z1: 80, h: 5, p: 2.2, flat: 0 },      // steep curved kicker
+  { x0: 100, x1: 118, z0: 20, z1: 45, h: 4.5, p: 1, flat: 0 },     // east kicker
   { x0: -12, x1: 12, z0: -140, z1: -100, h: 12, p: 1, flat: 30 }, // skyline ramp + plateau (drops off at z = -70)
 ];
 
@@ -88,6 +89,16 @@ for (let i = 0; i < 3; i++) box(20 + i * 1.3, 0, 15, 21.2 + i * 1.3, 1.2, 16.2, 
 box(21.3, 1.2, 15, 22.5, 2.4, 16.2, 'crate');
 box(-4, -1, -70, 4, 1.0, -68.5, 'barrier');                                  // low barrier
 box(-30, -6, -64, 30, 3, -62.5, 'wall');                                     // landing wall under the skyline drop
+
+// more to hit: a pole field, a lone pole, crate pyramid, brick wall, jersey chicane, arch, big blocks
+for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) box(62 + i * 9 - 0.2, -1, -24 + j * 14 - 0.2, 62 + i * 9 + 0.2, 7, -24 + j * 14 + 0.2, 'pole');
+box(-15.2, -1, 50 - 0.2, -14.8, 7, 50 + 0.2, 'pole');
+box(0 - 0.2, -1, 112 - 0.2, 0.2, 7, 112 + 0.2, 'pole');
+for (let lv = 0; lv < 3; lv++) for (let i = 0; i < 3 - lv; i++) box(40 + lv * 0.65 + i * 1.3, lv * 1.2, -45, 41.2 + lv * 0.65 + i * 1.3, lv * 1.2 + 1.2, -43.8, 'crate');
+box(80, 0, -80, 81, 3, -50, 'wall');
+for (let i = 0; i < 4; i++) box(-70 + i * 6, -1, -45 + (i % 2) * 5, -66 + i * 6, 0.9, -44 + (i % 2) * 5, 'barrier');
+box(-95, -1, -6, -94, 4, 6, 'wall'); box(-86, -1, -6, -85, 4, 6, 'wall'); box(-95, 4, -6, -85, 5, 6, 'wall');
+box(-60, -1, 60, -56, 3, 64, 'block'); box(-60, -1, 70, -56, 5, 74, 'block'); box(-50, -1, 80, -44, 2, 86, 'block');
 
 export const TREES = [];
 {
@@ -243,9 +254,12 @@ export class Car {
     const rim = (rows, cols, v) => (r, c) => (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) ? v : 0;
     for (const sg of [1, -1]) {
       const L = sg > 0 ? 'L' : 'R';
-      addPanel('door' + L, 3, 4, (r, c) => edgeAt(4 + c, 0, 1, DOOR_H[r], sg, 0.03), { mass: 16 * pm, att: (r, c) => (c === 3 ? 1.0 : c === 0 ? 0.65 : 0), yld: 0.012 });
-      addPanel('fender' + L, 3, 3, (r, c) => edgeAt(8 + c, 0, 1, FEND_H[r], sg, 0.03), { mass: 5 * pm, att: (r, c) => (c === 0 || c === 2 ? 0.7 : 0), yld: 0.014 });
-      addPanel('quarter' + L, 3, 3, (r, c) => edgeAt(1 + c, 0, 1, FEND_H[r], sg, 0.03), { mass: 5 * pm, att: (r, c) => (c === 0 || c === 2 ? 0.7 : 0), yld: 0.014 });
+      // side panels span the whole body side (floor edge to beltline) and meet edge to edge, with no gaps between them
+      const SH = [0, 0.5, 1.0];
+      const span = (name, f0, f1, cols, mass, att, yld) => addPanel(name + L, 3, cols, (r, c) => edgeAt(f0 + (f1 - f0) * c / (cols - 1), 0, 1, SH[r], sg, 0.03), { mass: mass * pm, att, yld });
+      span('quarter', 0, 3.55, 5, 8, (r, c) => (c === 0 || c === 4 ? 0.7 : 0), 0.014);
+      span('door', 3.55, 7.5, 5, 16, (r, c) => (c === 4 ? 1.0 : c === 0 ? 0.65 : 0), 0.012);
+      span('fender', 7.5, 11, 4, 8, (r, c) => (c === 0 || c === 3 ? 0.7 : 0), 0.014);
       addPanel('skirt' + L, 2, 6, (r, c) => edgeAt(3 + c, 0, 1, r === 0 ? 0 : 0.22, sg, 0.045), { mass: 3 * pm, att: (r, c) => (c === 0 || c === 5 ? 0.9 : (c === 2 || c === 3) && r === 0 ? 0.7 : 0), yld: 0.02 });
       addPanel('window' + L, 2, 5, (r, c) => edgeAt(3 + c, 1, 2, r, sg, 0.02), { mass: 4 * pm, att: rim(2, 5, 0.5), yld: 0.5, glass: true });
     }
@@ -364,20 +378,23 @@ export class Car {
     this.panels = [];
     const nearestRing = (i, n) => {
       const cand = [];
-      for (let j = 0; j < NR; j++) cand.push([Math.hypot(lx[i] - lx[j], ly[i] - ly[j], lz[i] - lz[j]), j]);
+      for (let j = 0; j < NR; j++) { const dj = Math.hypot(lx[i] - lx[j], ly[i] - ly[j], lz[i] - lz[j]); if (dj > 0.1) cand.push([dj, j]); }   // skip coincident nodes (zero-length mounts are unstable)
       cand.sort((a, b) => a[0] - b[0]);
       return cand.slice(0, n).map((c) => c[1]);
     };
     const quads = [];
     const nearestStation = (z) => { let bs = 0, bd = 1e9; for (let s = 0; s < NSTA; s++) { const dd = Math.abs(Z[s] - z); if (dd < bd) { bd = dd; bs = s; } } return bs; };
+    const ancOf = (p, i) => CORE + (p.anchorSt !== undefined ? p.anchorSt : nearestStation(lz[i]));
+    const ancMass = new Float64Array(NN);        // panel mass hanging off each spine node (limits backing stiffness so light spine nodes stay stable)
+    for (const p of panelDefs) for (const r of p.idx) for (const i of r) ancMass[ancOf(p, i)] += m[i];
     for (const p of panelDefs) {
       const tang = [], back = [], nodes = [], grid = [];
       for (let r = 0; r < p.rows; r++) for (let c = 0; c < p.cols; c++) {
         const i = p.idx[r][c]; nodes.push(i);
         // soft backing spring to the centre-line spine: gives every panel node real support normal to the surface
         // (so panels can't sag like cloth), dents plastically, and snaps when the panel is pulled off
-        const as = p.anchorSt !== undefined ? p.anchorSt : nearestStation(lz[i]);
-        back.push(addW(i, CORE + as, 140, 1.0, 0.06, 0.15, 0, 2));
+        const ac = ancOf(p, i), wb = Math.min(140, 200 * Math.sqrt(m[ac] / ancMass[ac]));
+        back.push(addW(i, ac, wb, 1.0, 0.06, 0.15, 0, 2));
         const strength = p.att(r, c);
         if (strength > 0) {
           for (const j of nearestRing(i, strength >= 0.65 ? 3 : 2)) {
@@ -434,6 +451,7 @@ export class Car {
       }
     }
     for (const p of this.panels) for (const i of p.nodes) { cpA.push(i); cpB.push(i); cpT.push(0); cpS.push(kcOf(i)); }
+    for (let sI = 0; sI < NSTA; sI++) { cpA.push(CORE + sI); cpB.push(CORE + sI); cpT.push(0); cpS.push(kcOf(CORE + sI)); }   // spine: stops a pole poking into the cabin
     for (const row of eng) for (const i of row) { cpA.push(i); cpB.push(i); cpT.push(0); cpS.push(kcOf(i)); }
     for (const f of quads) { cpA.push(f.q[0]); cpB.push(f.q[2]); cpT.push(0.5); cpS.push(kcOf(f.q[0])); }
     this.cpA = Int32Array.from(cpA); this.cpB = Int32Array.from(cpB); this.cpT = Float64Array.from(cpT); this.cpS = Float64Array.from(cpS);
@@ -654,7 +672,8 @@ export class Car {
   // frame-level update: steering, gearbox, then fixed sub-steps
   advance(dt, inp) {
     const d = this.def;
-    for (const b of OBSTACLES) {   // safety net: if the centre of mass is ever inside a solid, pop out beside it
+    for (const b of OBSTACLES) {   // safety net (only for big solids; thin poles must be wrapped around, not teleported away from)
+      if (b.max[0] - b.min[0] < 0.9 || b.max[2] - b.min[2] < 0.9) continue;
       if (this.com[0] > b.min[0] && this.com[0] < b.max[0] && this.com[1] > b.min[1] && this.com[1] < b.max[1] && this.com[2] > b.min[2] && this.com[2] < b.max[2]) {
         const dx0 = this.com[0] - b.min[0], dx1 = b.max[0] - this.com[0], dz0 = this.com[2] - b.min[2], dz1 = b.max[2] - this.com[2];
         const m4 = Math.min(dx0, dx1, dz0, dz1);

@@ -114,6 +114,8 @@ const MAT = {
   crate: new THREE.MeshLambertMaterial({ color: 0x9a6a38 }),
   barrier: new THREE.MeshLambertMaterial({ map: stripeTex('#d8d8d8', '#c03030', 6, 1) }),
   tree: new THREE.MeshLambertMaterial({ color: 0x5a3a1e }),
+  pole: new THREE.MeshStandardMaterial({ color: 0x9aa3ab, metalness: 0.6, roughness: 0.45 }),
+  block: new THREE.MeshLambertMaterial({ color: 0x777b80 }),
 };
 for (const o of OBSTACLES) {
   if (o.kind === 'tree') continue;

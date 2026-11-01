@@ -14,6 +14,7 @@ const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t
 function rng(seed) { return () => { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
 export const WORLD_HALF = 195;
+export const WATER = { x: 70, z: 95, r: 19, y: -0.8, rw: 12.6 };   // lake: a bowl in the terrain filled to y = -0.8
 
 // ---------------------------------------------------------------- world
 // ramps rise along +z. p = curve exponent (1 = straight), flat = extra plateau length after the top
@@ -41,6 +42,8 @@ export function terrainHeight(x, z) {
       h = Math.max(h, q.h * Math.pow(t, q.p) * side * (1 - smooth(zEnd - 3, zEnd, z)));
     }
   }
+  const dl = Math.hypot(x - WATER.x, z - WATER.z);       // lake bowl
+  if (dl < WATER.r) h -= 3.2 * (0.5 + 0.5 * Math.cos(Math.PI * dl / WATER.r));
   const dm = Math.hypot(x + 45, z - 25);                 // round mound
   if (dm < 22) h += 6 * (0.5 + 0.5 * Math.cos(Math.PI * dm / 22));
   if (Math.abs(x) < 25) {                                // speed bumps
@@ -122,8 +125,18 @@ function ball(x, z, r, m, color) {
 }
 for (let i = 0; i < 8; i++) ball(10 + i * 2.6, 22, 0.9, 40, i);
 for (let i = 0; i < 3; i++) ball(-10, 24 + i * 3.6, 1.5, 150, 8 + i);
+// wrecking ball on a gantry: a heavy ball on a rope that swings across the road
+box(8, -1, 109.5, 11, 17, 112.5, 'block'); box(49, -1, 109.5, 52, 17, 112.5, 'block'); box(8, 16, 109.5, 52, 17.6, 112.5, 'block');
+{
+  const len = 14.5, ang = 1.0, b = { x: 30 + len * Math.sin(ang), y: 16.2 - len * Math.cos(ang), z: 111, vx: 0, vy: 0, vz: 0, fx: 0, fy: 0, fz: 0, r: 1.4, m: 3000, color: 5, home: [30, 111] };
+  b.rope = { ax: 30, ay: 16.2, az: 111, len }; b.start = [b.x, b.y, b.z];
+  BALLS.push(b);
+}
 export function resetBalls() {
-  for (const b of BALLS) { b.x = b.home[0]; b.z = b.home[1]; b.y = terrainHeight(b.x, b.z) + b.r; b.vx = b.vy = b.vz = 0; }
+  for (const b of BALLS) {
+    if (b.rope) { b.x = b.start[0]; b.y = b.start[1]; b.z = b.start[2]; } else { b.x = b.home[0]; b.z = b.home[1]; b.y = terrainHeight(b.x, b.z) + b.r; }
+    b.vx = b.vy = b.vz = 0;
+  }
 }
 
 // ---------------------------------------------------------------- vehicle topology
@@ -140,7 +153,7 @@ export const NCH = CORE + NSTA;       // first panel node
 // per-vehicle data. Arrays are per station (rear -> front).
 export const VEHICLES = {
   sedan: {
-    name: 'Sedan', blurb: 'Balanced rear-wheel drive',
+    name: 'Sedan', blurb: 'Mid-size family saloon, balanced rear-wheel drive',
     Z: [-2.25, -2.05, -1.65, -1.25, -0.85, -0.45, -0.05, 0.35, 0.75, 1.2, 1.7, 2.25],
     YF: [0.48, 0.44, 0.42, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40, 0.41, 0.43, 0.46],
     YB: [0.72, 0.78, 0.80, 0.82, 0.84, 0.84, 0.84, 0.84, 0.82, 0.80, 0.78, 0.66],
@@ -149,35 +162,35 @@ export const VEHICLES = {
     WT: [0.68, 0.72, 0.75, 0.70, 0.66, 0.66, 0.66, 0.68, 0.78, 0.78, 0.76, 0.68],
     YS: [0.005, 0.0055, 0.007, 0.012, 0.015, 0.016, 0.015, 0.011, 0.008, 0.006, 0.0055, 0.005],
     WF: 0.72, WX: 1.0, WR: 0.35, axF: 1.45, axR: -1.35,
-    EA: 4.0e5, mass: 1150, mEng: 140, mFuel: 45, mWheel: 35, pm: 1,
+    EA: 4.0e5, mass: 1150, mEng: 140, mFuel: 45, mWheel: 35, pm: 1, tyreW: 0.24, rim: 0.66,
     rideF: 1.3, rideR: 1.5, travelUp: 0.11, travelDown: 0.13,
     torque: 190, final: 3.9, drive: 'rwd', grip: 1.15, drag: 0.02, brake: 4500, bed: false,
   },
   pickup: {
-    name: 'Pickup', blurb: 'Heavy, tall, all-wheel drive',
+    name: 'Pickup', blurb: 'Full-size 90s truck, heavy, all-wheel drive',
     Z: [-2.6, -2.4, -1.9, -1.4, -0.95, -0.5, -0.05, 0.4, 0.85, 1.3, 1.85, 2.6],
     YF: [0.65, 0.63, 0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 0.63, 0.64, 0.66],
     YB: [1.0, 1.05, 1.08, 1.08, 1.25, 1.25, 1.25, 1.22, 1.18, 1.14, 1.08, 1.0],
-    YR: [1.12, 1.15, 1.15, 1.15, 1.95, 2.0, 1.98, 1.9, 1.38, 1.34, 1.3, 1.2],
+    YR: [1.12, 1.15, 1.15, 1.15, 1.78, 1.82, 1.8, 1.72, 1.34, 1.3, 1.26, 1.18],
     WB: [0.92, 0.96, 0.98, 0.98, 0.98, 0.98, 0.98, 0.98, 0.98, 0.97, 0.94, 0.9],
     WT: [0.9, 0.92, 0.92, 0.92, 0.82, 0.8, 0.8, 0.82, 0.92, 0.92, 0.9, 0.85],
     YS: [0.006, 0.0065, 0.008, 0.013, 0.016, 0.017, 0.016, 0.012, 0.009, 0.007, 0.0065, 0.006],
     WF: 0.85, WX: 1.1, WR: 0.43, axF: 1.65, axR: -1.6,
-    EA: 6.9e5, mass: 2100, mEng: 250, mFuel: 80, mWheel: 55, pm: 1.4,
+    EA: 6.9e5, mass: 2100, mEng: 250, mFuel: 80, mWheel: 55, pm: 1.4, tyreW: 0.3, rim: 0.55,
     rideF: 1.2, rideR: 1.05, travelUp: 0.14, travelDown: 0.18,
     torque: 330, final: 4.2, drive: 'awd', grip: 1.1, drag: 0.03, brake: 6500, bed: true,
   },
   coupe: {
-    name: 'Coupe', blurb: 'Light, grippy and fast',
+    name: 'Coupe', blurb: 'Low two-door sports coupe, light and fast',
     Z: [-2.0, -1.85, -1.5, -1.1, -0.7, -0.3, 0.1, 0.5, 0.9, 1.3, 1.7, 2.1],
     YF: [0.38, 0.36, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.36, 0.37, 0.38],
     YB: [0.62, 0.66, 0.68, 0.7, 0.72, 0.72, 0.72, 0.7, 0.68, 0.66, 0.62, 0.55],
-    YR: [0.8, 0.88, 0.92, 1.1, 1.3, 1.35, 1.32, 1.22, 0.88, 0.84, 0.78, 0.7],
+    YR: [0.8, 0.88, 0.92, 1.02, 1.18, 1.23, 1.21, 1.14, 0.84, 0.8, 0.74, 0.68],
     WB: [0.74, 0.8, 0.82, 0.82, 0.82, 0.82, 0.82, 0.82, 0.82, 0.8, 0.76, 0.72],
     WT: [0.62, 0.68, 0.7, 0.66, 0.62, 0.6, 0.62, 0.66, 0.72, 0.72, 0.68, 0.6],
     YS: [0.0045, 0.005, 0.0065, 0.011, 0.014, 0.015, 0.014, 0.01, 0.0075, 0.0055, 0.005, 0.0045],
     WF: 0.68, WX: 0.96, WR: 0.33, axF: 1.3, axR: -1.2,
-    EA: 3.7e5, mass: 1000, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.85,
+    EA: 3.7e5, mass: 1000, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.85, tyreW: 0.26, rim: 0.72,
     rideF: 1.6, rideR: 1.8, travelUp: 0.09, travelDown: 0.11,
     torque: 175, final: 3.5, drive: 'rwd', grip: 1.3, drag: 0.014, brake: 4200, bed: false,
   },
@@ -187,27 +200,27 @@ export const VEHICLES = {
 {
   const S = VEHICLES.sedan, P = VEHICLES.pickup, mk = (o) => Object.assign({}, S, o), sc = (a, k) => a.map((v) => v * k), add = (a, k) => a.map((v) => v + k);
   VEHICLES.hatch = mk({
-    name: 'Hatchback', blurb: 'Small, front-wheel drive, agile',
-    Z: sc(S.Z, 0.82), YB: add(S.YB, -0.02), YR: [1.02, 1.18, 1.32, 1.4, 1.44, 1.46, 1.45, 1.38, 0.98, 0.95, 0.92, 0.8], WB: sc(S.WB, 0.96), WT: sc(S.WT, 1.03),
-    WF: 0.72, WX: 1.0, WR: 0.32, axF: 1.19, axR: -1.11, EA: 3.8e5, mass: 1050, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.9,
+    name: 'Hatchback', blurb: 'Compact five-door hatch, front-wheel drive',
+    Z: sc(S.Z, 0.92), YB: add(S.YB, -0.02), YR: [1.05, 1.25, 1.38, 1.42, 1.45, 1.46, 1.45, 1.38, 0.98, 0.95, 0.92, 0.82], tyreW: 0.21, rim: 0.7, WB: sc(S.WB, 0.96), WT: sc(S.WT, 1.03),
+    WF: 0.72, WX: 1.0, WR: 0.32, axF: 1.33, axR: -1.24, EA: 3.8e5, mass: 1050, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.9,
     rideF: 1.45, rideR: 1.65, torque: 160, final: 4.1, drive: 'fwd', grip: 1.25, drag: 0.016, brake: 4200,
   });
   VEHICLES.suv = mk({
-    name: 'SUV', blurb: 'Tall, tough, all-wheel drive',
+    name: 'SUV', blurb: 'Full-size off-road wagon, all-wheel drive', tyreW: 0.29, rim: 0.58,
     Z: sc(S.Z, 1.02), YF: add(S.YF, 0.14), YB: add(S.YB, 0.2), YR: [1.5, 1.72, 1.8, 1.82, 1.84, 1.84, 1.82, 1.7, 1.12, 1.08, 1.02, 0.9],
     WB: sc(S.WB, 1.05), WT: [0.9, 0.92, 0.94, 0.92, 0.9, 0.9, 0.9, 0.9, 0.92, 0.92, 0.9, 0.84], YS: P.YS,
     WF: 0.8, WX: 1.08, WR: 0.4, axF: 1.5, axR: -1.4, EA: 6.0e5, mass: 1950, mEng: 220, mFuel: 70, mWheel: 48, pm: 1.3,
     rideF: 1.25, rideR: 1.2, travelUp: 0.14, travelDown: 0.18, torque: 300, final: 4.0, drive: 'awd', grip: 1.1, drag: 0.03, brake: 6000,
   });
   VEHICLES.muscle = mk({
-    name: 'Muscle', blurb: 'Long hood, huge torque, rear-wheel drive',
+    name: 'Muscle', blurb: '60s two-door muscle car, huge torque, rear-wheel drive', tyreW: 0.32, rim: 0.64,
     Z: [-2.4, -2.2, -1.8, -1.4, -1.0, -0.6, -0.2, 0.2, 0.65, 1.2, 1.85, 2.55],
     YB: [0.74, 0.8, 0.82, 0.84, 0.86, 0.86, 0.86, 0.86, 0.84, 0.82, 0.8, 0.7], YR: [0.9, 0.98, 1.0, 1.1, 1.36, 1.4, 1.38, 1.3, 0.98, 0.95, 0.92, 0.84],
     WX: 1.02, axF: 1.55, axR: -1.5, EA: 4.5e5, mass: 1600, mEng: 230, mFuel: 55, mWheel: 40, pm: 1.05,
     torque: 420, final: 3.7, drive: 'rwd', grip: 1.05, drag: 0.024, brake: 4800,
   });
   VEHICLES.van = mk({
-    name: 'Van', blurb: 'Big box, slow, lots to break',
+    name: 'Van', blurb: 'Cargo van, big box with lots to break', tyreW: 0.27, rim: 0.55,
     Z: [-2.6, -2.35, -1.9, -1.4, -0.9, -0.4, 0.1, 0.55, 0.95, 1.35, 1.9, 2.4],
     YF: P.YF, YB: [1.1, 1.15, 1.15, 1.15, 1.15, 1.15, 1.15, 1.1, 1.0, 0.95, 0.9, 0.85], YR: [2.1, 2.15, 2.15, 2.15, 2.15, 2.15, 2.1, 2.0, 1.3, 1.25, 1.2, 1.1],
     WB: sc(P.WB, 0.99), WT: [0.93, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.9, 0.9, 0.88, 0.84], YS: P.YS,
@@ -215,7 +228,7 @@ export const VEHICLES = {
     rideF: 1.15, rideR: 1.0, travelUp: 0.14, travelDown: 0.18, torque: 290, final: 4.3, drive: 'rwd', grip: 1.05, drag: 0.04, brake: 6200,
   });
   VEHICLES.mini = mk({
-    name: 'Mini', blurb: 'Tiny and fragile, front-wheel drive',
+    name: 'Mini', blurb: 'Tiny city car, fragile, front-wheel drive', tyreW: 0.18, rim: 0.62,
     Z: sc(S.Z, 0.72), YB: add(S.YB, -0.05), YR: [1.02, 1.12, 1.2, 1.26, 1.3, 1.32, 1.3, 1.25, 0.94, 0.9, 0.86, 0.76], WB: sc(S.WB, 0.97), WT: sc(S.WT, 0.95),
     WF: 0.68, WX: 0.94, WR: 0.28, axF: 1.04, axR: -0.97, EA: 2.8e5, mass: 750, mEng: 80, mFuel: 30, mWheel: 22, pm: 0.7,
     rideF: 1.5, rideR: 1.7, travelUp: 0.09, travelDown: 0.11, torque: 105, final: 4.3, drive: 'fwd', grip: 1.2, drag: 0.012, brake: 3600,
@@ -266,7 +279,7 @@ export class Car {
     ];
     for (const w of this.wheels) {
       addNode(w.left ? d.WX : -d.WX, d.WR, w.front ? d.axF : d.axR, d.mWheel);
-      w.spin = 0; w.spinVel = 0; w.grounded = false; w.skid = 0; w.vlat = 0; w.alive = true; w.detached = false; w.beams = []; w.arms = [];
+      w.spin = 0; w.spinVel = 0; w.grounded = false; w.skid = 0; w.vlat = 0; w.alive = true; w.detached = false; w.flat = 0; w.beams = []; w.arms = [];
     }
     addNode(0, (YF[10] + YB[10]) / 2 + 0.05, (Z[9] + Z[10]) / 2, d.mEng);
     addNode(0, (YF[1] + YB[1]) / 2, (Z[1] + Z[2]) / 2, d.mFuel);
@@ -298,15 +311,18 @@ export class Car {
       const L = sg > 0 ? 'L' : 'R';
       // side panels span the whole body side (floor edge to beltline) and meet edge to edge, with no gaps between them
       const SH = [0, 0.5, 1.0];
-      const span = (name, f0, f1, cols, mass, att, yld) => addPanel(name + L, 3, cols, (r, c) => edgeAt(f0 + (f1 - f0) * c / (cols - 1), 0, 1, SH[r], sg, 0.03), { mass: mass * pm, att, yld });
+      const span = (name, f0, f1, cols, mass, att, yld, extra) => addPanel(name + L, 3, cols, (r, c) => edgeAt(f0 + (f1 - f0) * c / (cols - 1), 0, 1, SH[r], sg, 0.03), Object.assign({ mass: mass * pm, att, yld }, extra));
       span('quarter', 0, 3.55, 5, 8, (r, c) => (c === 0 || c === 4 ? 0.7 : 0), 0.014);
-      span('door', 3.55, 7.5, 5, 16, (r, c) => (c === 4 ? 1.0 : c === 0 ? 0.65 : 0), 0.012);
+      span('door', 3.55, 7.5, 5, 16, (r, c) => (c === 4 ? 1.0 : c === 0 ? 0.65 : 0), 0.012, { hinge: (r, c) => c === 4, latch: (r, c) => c === 0 });
       span('fender', 7.5, 11, 4, 8, (r, c) => (c === 0 || c === 3 ? 0.7 : 0), 0.014);
+      const spanUp = (name, f0, f1, cols, mass, att) => addPanel(name + L, 2, cols, (r, c) => edgeAt(f0 + (f1 - f0) * c / (cols - 1), 1, 2, r, sg, 0.03), { mass: mass * pm, att, yld: 0.014 });
+      spanUp('quarterTop', 0, 3.55, 5, 3, rim(2, 5, 0.6));
+      spanUp('fenderTop', 7.5, 11, 4, 3, rim(2, 4, 0.6));
       addPanel('skirt' + L, 2, 6, (r, c) => edgeAt(3 + c, 0, 1, r === 0 ? 0 : 0.22, sg, 0.045), { mass: 3 * pm, att: (r, c) => (c === 0 || c === 5 ? 0.9 : (c === 2 || c === 3) && r === 0 ? 0.7 : 0), yld: 0.02 });
       addPanel('window' + L, 2, 5, (r, c) => edgeAt(3 + c, 1, 2, r, sg, 0.02), { mass: 4 * pm, att: rim(2, 5, 0.5), yld: 0.5, glass: true });
     }
-    addPanel('hood', 3, 4, (r, c) => topAt(8 + c, r / 2, 0.03), { mass: 13 * pm, att: (r, c) => (c === 0 ? 1.0 : c === 3 ? 0.65 : r !== 1 ? 0.3 : 0), yld: 0.012 });
-    if (!d.bed) addPanel('trunk', 3, 3, (r, c) => topAt(c * 1.25, r / 2, 0.03), { mass: 9 * pm, att: (r, c) => (c === 2 ? 1.0 : c === 0 ? 0.65 : r !== 1 ? 0.3 : 0), yld: 0.012 });
+    addPanel('hood', 3, 4, (r, c) => topAt(8 + c, r / 2, 0.03 + ((c === 1 || c === 2) ? 0.04 : 0)), { mass: 13 * pm, att: (r, c) => (c === 0 ? 1.0 : c === 3 ? 0.65 : r !== 1 ? 0.3 : 0), yld: 0.012, hinge: (r, c) => c === 0, latch: (r, c) => c === 3, lift: true });
+    if (!d.bed) addPanel('trunk', 3, 3, (r, c) => topAt(c * 1.25, r / 2, 0.03 + (c === 1 ? 0.04 : 0)), { mass: 9 * pm, att: (r, c) => (c === 2 ? 1.0 : c === 0 ? 0.65 : r !== 1 ? 0.3 : 0), yld: 0.012, hinge: (r, c) => c === 2, latch: (r, c) => c === 0, lift: true });
     addPanel('roof', 3, 4, (r, c) => topAt(4 + c, r / 2, 0.03), { mass: 9 * pm, att: corners(3, 4, 0.9), yld: 0.012 });
     addPanel('windshield', 3, 3, (r, c) => topAt(7 + c * 0.5, r / 2, 0.02), { mass: 9 * pm, att: rim(3, 3, 0.5), yld: 0.5, glass: true });
     const rg0 = d.bed ? 3 : 2.5;
@@ -315,10 +331,10 @@ export class Car {
       const x = (c / 4 * 2 - 1) * (WB[end] * 0.98), u = Math.abs(x) / WB[end];
       return [x, YF[end] + (r === 0 ? 0.03 : 0.22), Z[end] + dir * (0.07 - 0.2 * u * u)];
     };
-    addPanel('bumperR', 2, 5, bumper(0, -1), { mass: 11 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 2 });
-    addPanel('bumperF', 2, 5, bumper(11, 1), { mass: 12 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 9 });
+    addPanel('bumperR', 2, 5, bumper(0, -1), { mass: 11 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 2, col: 'chrome' });
+    addPanel('bumperF', 2, 5, bumper(11, 1), { mass: 12 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 9, col: 'chrome' });
 
-    const fascia = (end, dir) => (r, c) => { const x = (c / 4 * 2 - 1) * WB[end] * 0.95; return [x, lerp(YF[end] + 0.3, YR[end] - 0.03, r), Z[end] + dir * 0.04]; };
+    const fascia = (end, dir) => (r, c) => { const x = (c / 4 * 2 - 1) * WB[end]; return [x, lerp(YF[end] + 0.2, Math.max(YR[end] - 0.02, YF[end] + 0.5), r), Z[end] + dir * 0.04]; };
     addPanel('grille', 2, 5, fascia(11, 1), { mass: 4 * pm, att: rim(2, 5, 0.6), yld: 0.02, anchorSt: 10, col: 'dark' });
     addPanel('tailPanel', 2, 5, fascia(0, -1), { mass: 4 * pm, att: rim(2, 5, 0.6), yld: 0.02, anchorSt: 1 });
     addPanel('underbody', 3, 5, (r, c) => { const { p, z } = rp(2 + c * 2), a = p[5], b = p[0]; return [lerp(a[0], b[0], r / 2), lerp(a[1], b[1], r / 2) - 0.04, z]; }, { mass: 6 * pm, att: (r, c) => ((r === 0 || r === 2) && (c === 0 || c === 4 || c === 2)) ? 0.7 : 0, yld: 0.02, col: 'dark' });
@@ -333,7 +349,12 @@ export class Car {
 
     const NN = this.NN = NX.length;
     let panelMass = 0;
-    for (const p of panelDefs) { p.nodeMass = Math.max(2, p.mass / (p.rows * p.cols)); for (const r of p.idx) for (const i of r) { NM[i] = p.nodeMass; panelMass += p.nodeMass; } }
+    for (const p of panelDefs) { p.nodeMass = Math.max(1, p.mass / (p.rows * p.cols)); for (const r of p.idx) for (const i of r) panelMass += p.nodeMass; }
+    {   // panels may weigh at most what is left after the frame nodes get a sensible minimum mass
+      const room = d.mass - d.mEng - d.mFuel - 4 * d.mWheel - 2.2 * (NR + NSTA), f = Math.min(1, room / panelMass);
+      panelMass = 0;
+      for (const p of panelDefs) { p.nodeMass *= f; for (const r of p.idx) for (const i of r) { NM[i] = p.nodeMass; panelMass += p.nodeMass; } }
+    }
     const ringM = (d.mass - d.mEng - d.mFuel - 4 * d.mWheel - panelMass) / (NR + NSTA);
     for (let i = 0; i < NR; i++) NM[i] = ringM;
     for (let s = 0; s < NSTA; s++) NM[CORE + s] = ringM;
@@ -417,7 +438,7 @@ export class Car {
     }
 
     // ---------------- panel grids + breakable attachments
-    this.panels = [];
+    this.panels = []; this.bumps = [];
     const nearestRing = (i, n) => {
       const cand = [];
       for (let j = 0; j < NR; j++) { const dj = Math.hypot(lx[i] - lx[j], ly[i] - ly[j], lz[i] - lz[j]); if (dj > 0.1) cand.push([dj, j]); }   // skip coincident nodes (zero-length mounts are unstable)
@@ -430,30 +451,39 @@ export class Car {
     const ancMass = new Float64Array(NN);        // panel mass hanging off each spine node (limits backing stiffness so light spine nodes stay stable)
     for (const p of panelDefs) for (const r of p.idx) for (const i of r) ancMass[ancOf(p, i)] += m[i];
     for (const p of panelDefs) {
-      const tang = [], back = [], nodes = [], grid = [];
+      const tang = [], back = [], nodes = [], grid = [], hingeTang = [], latchTang = [], relTang = [], relBack = [];
       for (let r = 0; r < p.rows; r++) for (let c = 0; c < p.cols; c++) {
         const i = p.idx[r][c]; nodes.push(i);
+        const isHinge = !!(p.hinge && p.hinge(r, c)), isLatch = !!(p.latch && p.latch(r, c));
         // soft backing spring to the centre-line spine: gives every panel node real support normal to the surface
         // (so panels can't sag like cloth), dents plastically, and snaps when the panel is pulled off
         const ac = ancOf(p, i), wb = Math.min(140, 200 * Math.sqrt(m[ac] / ancMass[ac]));
-        back.push(addW(i, ac, wb, 1.0, 0.06, 0.15, 0, 2));
+        const qb = addW(i, ac, wb, 1.0, 0.06, 0.15, 0, 2); back.push(qb); if (p.hinge && !isHinge) relBack.push(qb);
+        // one-sided stand-off: the part may move away from the body but can never be pushed through it (no collision with other parts, just a floor)
+        this.bumps.push({ a: i, b: ac, minL: 0.72 * Math.hypot(lx[i] - lx[ac], ly[i] - ly[ac], lz[i] - lz[ac]) });
+        if (p.lift) this.bumps.push({ a: i, b: ENG, minL: 0.8 * Math.hypot(lx[i] - lx[ENG], ly[i] - ly[ENG], lz[i] - lz[ENG]) });
         const strength = p.att(r, c);
         if (strength > 0) {
           for (const j of nearestRing(i, strength >= 0.65 ? 3 : 2)) {
-            tang.push(addW(i, j, 140 * strength, 0.8, 0.03, 0.06 + 0.12 * strength, 0, 2));
+            const qt = addW(i, j, 140 * strength, 0.8, 0.03, 0.06 + 0.12 * strength, 0, 2); tang.push(qt);
+            if (isHinge) hingeTang.push(qt); else if (isLatch) latchTang.push(qt); else relTang.push(qt);
           }
         }
         // grid beams to right / below / both diagonals (glass: stiffer, brittle, never yields - it cracks then shatters)
         const wg = p.glass ? 330 : 300, zg = 0.8, gk = p.glass ? 6 : 1, gy = p.yld;
         if (c + 1 < p.cols) grid.push(addW(i, p.idx[r][c + 1], wg, zg, gy, 0.5, 1, gk));
         if (r + 1 < p.rows) grid.push(addW(i, p.idx[r + 1][c], wg, zg, gy, 0.5, 1, gk));
+        // bending beams (every second node) make the sheet a stiff plate instead of a cloth
+        if (c + 2 < p.cols) grid.push(addW(i, p.idx[r][c + 2], wg * 0.55, zg, gy, 0.5, 1, gk));
+        if (r + 2 < p.rows) grid.push(addW(i, p.idx[r + 2][c], wg * 0.55, zg, gy, 0.5, 1, gk));
         if (r + 1 < p.rows && c + 1 < p.cols) {
           grid.push(addW(i, p.idx[r + 1][c + 1], wg * 0.9, zg, gy, 0.5, 1, gk));
           grid.push(addW(p.idx[r][c + 1], p.idx[r + 1][c], wg * 0.9, zg, gy, 0.5, 1, gk));
           quads.push({ q: [i, p.idx[r][c + 1], p.idx[r + 1][c + 1], p.idx[r + 1][c]], col: p.glass ? 'glass' : (p.col || 'paint'), panel: this.panels.length });
         }
       }
-      this.panels.push({ name: p.name, nodes, attach: back.concat(tang), tang, back, grid, glass: !!p.glass, rows: p.rows, cols: p.cols, gone: false, lost: false, crack: 0, deb: null });
+      this.panels.push({ name: p.name, nodes, attach: back.concat(tang), tang, back, grid, glass: !!p.glass, rows: p.rows, cols: p.cols, gone: false, lost: false, crack: 0, deb: null, hingeTang, latchTang, relTang, relBack, hinged: !!p.hinge, released: false, lift: !!p.lift,
+        buckle: p.lift ? { a: p.idx[1][0], b: p.idx[1][p.cols - 1], mids: p.idx.flatMap((row) => row.slice(1, p.cols - 1)), rest: Math.hypot(lx[p.idx[1][0]] - lx[p.idx[1][p.cols - 1]], ly[p.idx[1][0]] - ly[p.idx[1][p.cols - 1]], lz[p.idx[1][0]] - lz[p.idx[1][p.cols - 1]]) } : null });
     }
     // engine block beams: stiff cast iron that still yields and cracks when the frame is driven into it
     for (let L = 0; L < 4; L++) for (let c = 0; c < 4; c++) {
@@ -467,6 +497,17 @@ export class Car {
     }
     this.faces = chassisFaces(d.bed).concat(quads);
 
+    // numerical safety net: no node may carry more stiffness / damping than the 1500 Hz integrator can handle
+    {
+      const Sc = new Float64Array(NN), Sk = new Float64Array(NN);
+      for (let q = 0; q < ba.length; q++) { Sc[ba[q]] += bc[q]; Sc[bb[q]] += bc[q]; Sk[ba[q]] += bk[q]; Sk[bb[q]] += bk[q]; }
+      const dampF = (i) => Math.min(1, 0.8 / (DT * Sc[i] / m[i] + 1e-9)), stiffF = (i) => Math.min(1, Math.pow(0.55 / (DT * Math.sqrt(Sk[i] / m[i]) + 1e-9), 2));
+      for (let q = 0; q < ba.length; q++) {
+        if (bkind[q] === 4) continue;
+        bk[q] *= Math.min(stiffF(ba[q]), stiffF(bb[q])); bc[q] *= Math.min(dampF(ba[q]), dampF(bb[q]));
+      }
+    }
+    for (const bp of this.bumps) { const me = meff(bp.a, bp.b); bp.k = me * 300 * 300; bp.c = 2 * 0.7 * Math.sqrt(bp.k * me); }
     this.NB = ba.length;
     this.ba = Int32Array.from(ba); this.bb = Int32Array.from(bb);
     this.bk = Float64Array.from(bk); this.bc = Float64Array.from(bc);
@@ -508,6 +549,12 @@ export class Car {
     this.airborne = false; this.bodyHit = false; this.groundedCount = 0;
     this.sparks = []; this.breaks = []; this.lostParts = 0; this.lostEvents = [];
     this.dead = new Uint8Array(NN); this.debris = [];
+    this.fuel = 1; this.leak = false; this.fire = 0; this.fireT = 0; this.exploded = false; this.explosions = []; this.flooded = 0; this.engHealth = 1; this.inLake = false;
+    this.buoy = new Float64Array(NN).fill(1.2);
+    for (let k = 0; k < 4; k++) this.buoy[HUB + k] = 0.25;
+    this.buoy[ENG] = 0.05; this.buoy[FUEL] = 0.3; for (const row of eng) for (const i of row) this.buoy[i] = 0.05;
+    this.engBeams = []; for (let q = 0; q < this.NB; q++) if (this.bkind[q] === 7 && this.isBody[q]) this.engBeams.push(q);
+    this.tankMounts = []; for (let q = 0; q < this.NB; q++) if (this.bkind[q] === 5 && this.ba[q] === FUEL) this.tankMounts.push(q);
     this.rx = new Float32Array(NN); this.ry = new Float32Array(NN); this.rz = new Float32Array(NN);
     this.nodeDmg = new Float32Array(NN);
     this.nearObs = [];
@@ -545,12 +592,13 @@ export class Car {
     }
     this.bL0.set(this.bL00); this.byield.set(this.byield0); this.broken.fill(0); this.strain.fill(0); this.nodeDmg.fill(0);
     for (const sv of this.struts) this.bL0[sv.q] = this.bL00[sv.q];
-    for (const p of this.panels) { p.lost = false; p.gone = false; p.crack = 0; p.deb = null; }
+    for (const p of this.panels) { p.lost = false; p.gone = false; p.crack = 0; p.deb = null; p.released = false; p.popped = false; }
     this.debris.length = 0;
     this.dead.fill(0);
     this.lostParts = 0; this.breaks.length = 0; this.lostEvents.length = 0;
+    this.fuel = 1; this.leak = false; this.fire = 0; this.fireT = 0; this.exploded = false; this.explosions.length = 0; this.flooded = 0; this.engHealth = 1;
     this.steerAngle = 0; this.plastic = 0; this.acc = 0; this.gear = 1; this.rpm = 900; this.shiftT = 0;
-    for (const w of this.wheels) { w.spin = 0; w.spinVel = 0; w.grounded = false; w.skid = 0; w.alive = true; w.detached = false; }
+    for (const w of this.wheels) { w.spin = 0; w.spinVel = 0; w.grounded = false; w.skid = 0; w.alive = true; w.detached = false; w.flat = 0; }
     this.computeFrame();
   }
 
@@ -645,7 +693,20 @@ export class Car {
       for (const q of p.tang) if (!this.broken[q]) ti++;
       for (const q of p.back) if (!this.broken[q]) bi++;
       if (p.glass) { if (p.crack >= 1 || ti <= p.tang.length * 0.2 || bi <= p.back.length * 0.2) this.dropPanel(p); }
-      else if ((p.tang.length && ti <= p.tang.length * 0.5) || bi <= p.back.length * 0.34) this.dropPanel(p);
+      else if (p.hinged) {     // hood / trunk / doors: stay on their hinge when the latch fails, swing open, only fall off when the hinge goes
+        let hi = 0, li = 0;
+        for (const q of p.hingeTang) if (!this.broken[q]) hi++;
+        for (const q of p.latchTang) if (!this.broken[q]) li++;
+        if (hi <= p.hingeTang.length * 0.4) this.dropPanel(p);
+        else if (!p.released && (li <= p.latchTang.length * 0.45 || p.popped)) {
+          p.released = true;
+          for (const q of p.relBack) this.broken[q] = 1;
+          for (const q of p.relTang) this.broken[q] = 1;
+          for (const q of p.latchTang) this.broken[q] = 1;
+          const i0 = p.nodes[(p.nodes.length / 2) | 0];
+          if (this.breaks.length < 30) this.breaks.push([this.px[i0], this.py[i0], this.pz[i0], 2]);
+        }
+      } else if ((p.tang.length && ti <= p.tang.length * 0.5) || bi <= p.back.length * 0.34) this.dropPanel(p);
     }
   }
   dropPanel(p) {
@@ -726,6 +787,35 @@ export class Car {
     }
   }
 
+  // fuel leak, fire and explosion
+  updateFire(dt) {
+    if (!this.leak) { let b = 0, pl = 0; for (const q of this.tankMounts) { if (this.broken[q]) b++; else pl += Math.abs(this.bL0[q] - this.bL00[q]) / this.bL00[q]; } if (b >= 1 || pl / this.tankMounts.length > 0.05 || this.engHealth < 0.4) this.leak = true; }
+    if (this.leak && this.fuel > 0) this.fuel = Math.max(0, this.fuel - dt * 0.01);
+    const wet = this.inLake && this.py[FUEL] < WATER.y;
+    if (this.fire === 0 && this.leak && this.fuel > 0.02 && !wet && (this.sparks.length > 0 || this.engHealth < 0.3) && Math.random() < dt * (this.sparks.length > 0 ? 2.5 : 0.4)) this.fire = 0.02;
+    if (this.fire > 0) {
+      if (wet || this.fuel <= 0) this.fire = Math.max(0, this.fire - dt * 0.4);
+      else { this.fire = Math.min(1, this.fire + dt * 0.07); this.fuel = Math.max(0, this.fuel - dt * 0.015 * this.fire); }
+      this.fireT = this.fire >= 1 ? this.fireT + dt : Math.max(0, this.fireT - dt);
+      if (this.fireT > 6 && this.fuel > 0.25 && !this.exploded) this.explode();
+    }
+  }
+  explode() {
+    this.exploded = true; this.fire = 0.6; this.fuel = 0;
+    const cx = this.px[FUEL], cy = this.py[FUEL], cz = this.pz[FUEL];
+    this.explosions.push([cx, cy, cz]);
+    for (let i = 0; i < this.NN; i++) {
+      if (this.dead[i]) continue;
+      const dx = this.px[i] - cx, dy = this.py[i] - cy, dz = this.pz[i] - cz, d = Math.hypot(dx, dy, dz) + 0.3, f = 16 / (1 + d * 0.6);
+      this.vx[i] += dx / d * f; this.vy[i] += dy / d * f + 4; this.vz[i] += dz / d * f;
+    }
+    for (let q = 0; q < this.NB; q++) {
+      const kd = this.bkind[q];
+      if ((kd === 2 && Math.random() < 0.5) || ((kd === 1 || kd === 6) && Math.random() < 0.1) || (kd === 5 && Math.random() < 0.6) || (kd === 0 && Math.random() < 0.04)) this.broken[q] = 1;
+    }
+    for (const p of this.panels) if (!p.gone && Math.random() < (p.glass ? 1 : 0.7)) this.dropPanel(p);
+  }
+
   // per-node dent amount 0..1 (for visual darkening)
   updateNodeDamage() {
     const NN = this.NN, acc = new Float32Array(NN), cnt = new Float32Array(NN);
@@ -772,12 +862,21 @@ export class Car {
     const target_rpm = Math.max(raw, this.throttle > 0.05 ? 2000 + 3000 * this.throttle * (sp < 8 ? 1 : 0.2) : 900);
     this.rpm += (Math.min(target_rpm, 7200) - this.rpm) * Math.min(1, dt * 12);
 
-    this.braking = 0; this.bodyHit = false; this.sparks.length = 0; this.breaks.length = 0; this.lostEvents.length = 0;
+    this.braking = 0; this.bodyHit = false; this.sparks.length = 0; this.breaks.length = 0; this.lostEvents.length = 0; this.explosions.length = 0;
+    {   // engine condition, lake, flooding
+      let pl = 0, br = 0; for (const q of this.engBeams) { if (this.broken[q]) br++; else pl += Math.abs(this.bL0[q] - this.bL00[q]) / this.bL00[q]; }
+      this.engHealth = Math.max(0, Math.min(1, 1 - pl / this.engBeams.length * 6 - br / this.engBeams.length * 2));
+      const lx = this.com[0] - WATER.x, lz = this.com[2] - WATER.z;
+      this.inLake = lx * lx + lz * lz < (WATER.rw + 8) * (WATER.rw + 8);
+      const ex = this.px[ENG] - WATER.x, ez = this.pz[ENG] - WATER.z;
+      if (this.inLake && this.py[ENG] < WATER.y && ex * ex + ez * ez < WATER.rw * WATER.rw) this.flooded = 6; else this.flooded = Math.max(0, this.flooded - dt);
+    }
     this.acc += dt;
     let n = 0;
     while (this.acc >= DT && n < MAX_STEPS) { this.step(inp); this.acc -= DT; n++; }
     if (this.acc > DT * MAX_STEPS) this.acc = 0;
     this.checkPanels();
+    this.updateFire(dt);
     this.airborne = this.groundedCount === 0 && !this.bodyHit;
   }
 
@@ -852,6 +951,16 @@ export class Car {
       fx[i] = -vx[i] * dr; fy[i] = -G * m[i] - vy[i] * dr; fz[i] = -vz[i] * dr;
     }
 
+    if (this.inLake) {      // buoyancy and water drag on every node under the surface
+      for (let i = 0; i < NN; i++) {
+        if (this.dead[i] || py[i] >= WATER.y) continue;
+        const dx = px[i] - WATER.x, dz = pz[i] - WATER.z;
+        if (dx * dx + dz * dz > WATER.rw * WATER.rw) continue;
+        const sub = Math.min(1, (WATER.y - py[i]) / 0.4), k = m[i] * 4 * sub;
+        fy[i] += m[i] * G * this.buoy[i] * sub; fx[i] -= vx[i] * k; fy[i] -= vy[i] * k; fz[i] -= vz[i] * k;
+      }
+    }
+
     // beams: spring + damper, plastic yield with strain hardening, snapping
     for (let q = 0; q < this.NB; q++) {
       if (this.broken[q]) continue;
@@ -886,6 +995,34 @@ export class Car {
       }
     }
 
+    // stand-off floors: parts can't be driven into the body / engine (one-sided, never a collision between parts)
+    for (let k = 0; k < this.bumps.length; k++) {
+      const bp = this.bumps[k], a = bp.a, b = bp.b;
+      if (this.dead[a] || this.dead[b]) continue;
+      const dx = px[a] - px[b], dy = py[a] - py[b], dz = pz[a] - pz[b], L = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (L >= bp.minL || L < 1e-6) continue;
+      const nx = dx / L, ny = dy / L, nz = dz / L, rel = (vx[a] - vx[b]) * nx + (vy[a] - vy[b]) * ny + (vz[a] - vz[b]) * nz;
+      const F = Math.max(0, bp.k * (bp.minL - L) - bp.c * rel);
+      fx[a] += F * nx; fy[a] += F * ny; fz[a] += F * nz; fx[b] -= F * nx; fy[b] -= F * ny; fz[b] -= F * nz;
+    }
+    // a hood or trunk squeezed lengthwise buckles upward (never down into the engine bay) and pops its latch
+    for (const p of this.panels) {
+      const bk = p.buckle; if (!bk || p.gone) continue;
+      const L = Math.hypot(px[bk.a] - px[bk.b], py[bk.a] - py[bk.b], pz[bk.a] - pz[bk.b]), comp = 1 - L / bk.rest;
+      if (comp > 0.03) {
+        if (comp > 0.1 && !p.released) p.popped = true;
+        const f = Math.min(3000, 9000 * (comp - 0.03)) / bk.mids.length, u = this.up;
+        for (const i of bk.mids) { fx[i] += u[0] * f; fy[i] += u[1] * f; fz[i] += u[2] * f; }
+      }
+    }
+    // air catches an unlatched hood or trunk lid and lifts it
+    {
+      const v2 = this.vcom[0] * this.vcom[0] + this.vcom[1] * this.vcom[1] + this.vcom[2] * this.vcom[2];
+      if (v2 > 25) for (const p of this.panels) if (p.released && p.lift && !p.gone) {
+        const f = 0.6 * v2 * 1.2 / p.nodes.length, u = this.up;
+        for (const i of p.nodes) { fx[i] += u[0] * f; fy[i] += u[1] * f; fz[i] += u[2] * f; }
+      }
+    }
     // suspension struts: progressive spring, bump-stops, different damping in compression and rebound
     for (const sv of this.struts) {
       if (this.broken[sv.q]) continue;
@@ -921,7 +1058,7 @@ export class Car {
     if (dn > 0.02) { if (vlongCar > 1) brake = Math.max(brake, dn); else thrust = -dn; }
     if (brake > this.braking) this.braking = brake;
     const ratio = thrust < 0 ? REV : GEARS[this.gear - 1];
-    const tq = this.rpm > 7000 ? 0 : d.torque * (0.6 + 0.4 * Math.sin(Math.PI * Math.min(this.rpm, 7500) / 7500));
+    const tq = (this.rpm > 7000 || this.flooded > 0 || this.engHealth < 0.05) ? 0 : d.torque * (0.6 + 0.4 * Math.sin(Math.PI * Math.min(this.rpm, 7500) / 7500)) * (0.25 + 0.75 * this.engHealth);
     const nDriven = d.drive === 'awd' ? 4 : 2;
     const cut = this.shiftT > 0 ? 0.1 : 1;
     const driveF = Math.abs(thrust) * tq * ratio * d.final * 0.9 / WR / nDriven * cut;
@@ -940,7 +1077,14 @@ export class Car {
         w.spinVel = Math.hypot(vx[i], vz[i]) / WR; w.spin += w.spinVel * dt;
         continue;
       }
-      const pen = groundH(x, z) + WR - y;
+      for (let o = 0; o < near.length; o++) {      // sharp things puncture tyres
+        const b = near[o]; if (b.kind !== 'blade' && b.kind !== 'pole') continue;
+        const ddx = x - clamp(x, b.min[0], b.max[0]), ddy = y - clamp(y, b.min[1], b.max[1]), ddz = z - clamp(z, b.min[2], b.max[2]);
+        if (ddx * ddx + ddy * ddy + ddz * ddz < (WR + 0.05) * (WR + 0.05) && this.speed > 4) w.flat = 1;
+      }
+      const WRe = WR * (1 - 0.22 * w.flat);
+      const pen = groundH(x, z) + WRe - y;
+      if (pen > 0.26 && w.flat < 1) w.flat = Math.min(1, w.flat + 0.5);     // rim strikes on a violent landing
       w.grounded = false; w.skid = 0;
       if (pen > 0) {
         groundNormal(x, z, n);
@@ -962,7 +1106,7 @@ export class Car {
         const vlong = vx[i] * tx + vy[i] * ty + vz[i] * tz;
         const vlat = vx[i] * sx + vy[i] * sy + vz[i] * sz;
         w.vlat = vlat;
-        const maxF = d.grip * Fn;
+        const maxF = d.grip * Fn * (1 - 0.45 * w.flat);
         let Fl = 0;
         const rear = !w.front;
         const driven = d.drive === 'awd' || (d.drive === 'fwd' ? w.front : rear);
@@ -974,6 +1118,7 @@ export class Car {
         const locked = rear && inp.hand;
         if (locked) Fl = -clamp(vlong * 5000, -maxF, maxF);
         if (!thrust && !brake && !locked) Fl -= clamp(vlong * 300, -300, 300);
+        if (w.flat > 0) Fl -= clamp(vlong * 900 * w.flat, -2500, 2500);
         let Ft = -vlat * LAT * (locked ? 0.4 : 1);
         const mag = Math.hypot(Fl, Ft), cap = locked ? maxF * 0.7 : maxF;
         if (mag > cap) { const k = cap / mag; Fl *= k; Ft *= k; }
@@ -1092,6 +1237,16 @@ export class Car {
       b.fx -= b.vx * b.m * 0.03; b.fz -= b.vz * b.m * 0.03;
       b.vx += b.fx / b.m * dt; b.vy += b.fy / b.m * dt; b.vz += b.fz / b.m * dt;
       b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt;
+      if (b.rope) {
+        const r = b.rope, dx = b.x - r.ax, dy = b.y - r.ay, dz = b.z - r.az, d = Math.hypot(dx, dy, dz);
+        if (d > r.len) {
+          const nx = dx / d, ny = dy / d, nz = dz / d;
+          b.x = r.ax + nx * r.len; b.y = r.ay + ny * r.len; b.z = r.az + nz * r.len;
+          const vn = b.vx * nx + b.vy * ny + b.vz * nz;
+          if (vn > 0) { b.vx -= nx * vn; b.vy -= ny * vn; b.vz -= nz * vn; }
+        }
+        continue;
+      }
       if (Math.abs(b.x) > WORLD_HALF || Math.abs(b.z) > WORLD_HALF || b.y < -30 || !(b.x === b.x)) {
         b.x = b.home[0]; b.z = b.home[1]; b.y = terrainHeight(b.x, b.z) + b.r; b.vx = b.vy = b.vz = 0;
       }

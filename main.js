@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Car, VEHICLES, OBSTACLES, TREES, BALLS, RAMPS, terrainHeight, onRamp, resetBalls, WORLD_HALF, st as stn, ENG, CORE as CORE_N, FUEL as FUEL_N } from './physics.js';
+import { Car, VEHICLES, OBSTACLES, TREES, BALLS, RAMPS, terrainHeight, onRamp, resetBalls, WATER, WORLD_HALF, st as stn, ENG, CORE as CORE_N, FUEL as FUEL_N } from './physics.js';
 import { Particles, Skids } from './fx.js';
 
 // ------------------------------------------------------------ settings
@@ -95,6 +95,7 @@ function applyTime(name) {
     let c = [0.5 * (1 - k) + 0.27 * k, 0.51 * (1 - k) + 0.44 * k, 0.53 * (1 - k) + 0.2 * k];
     const steep = 1 - nrm.getY(i);
     if (steep > 0.12 && k > 0.2) { const s = Math.min(1, (steep - 0.12) * 5); c = [c[0] * (1 - s) + 0.45 * s, c[1] * (1 - s) + 0.4 * s, c[2] * (1 - s) + 0.33 * s]; }
+    { const dl = Math.hypot(x - WATER.x, z - WATER.z); if (dl < WATER.r + 1.5) { const s = Math.min(1, (WATER.r + 1.5 - dl) / 4); c = [c[0] * (1 - s) + 0.72 * s, c[1] * (1 - s) + 0.65 * s, c[2] * (1 - s) + 0.45 * s]; } }
     if (onRamp(x, z)) { const stripe = Math.floor(z / 2) % 2 === 0; c = stripe ? [0.92, 0.62, 0.12] : [0.28, 0.28, 0.3]; }
     col[i * 3] = c[0] * n; col[i * 3 + 1] = c[1] * n; col[i * 3 + 2] = c[2] * n;
   }
@@ -161,16 +162,22 @@ const ballMeshes = BALLS.map((b) => {
   m.castShadow = true; scene.add(m); return m;
 });
 
+const water = new THREE.Mesh(new THREE.CircleGeometry(WATER.rw, 48).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x2a78b8, transparent: true, opacity: 0.62, roughness: 0.15, metalness: 0.1, depthWrite: false }));
+water.position.set(WATER.x, WATER.y, WATER.z); scene.add(water);
+const ropeGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+const rope = new THREE.Line(ropeGeo, new THREE.LineBasicMaterial({ color: 0x222222 })); rope.frustumCulled = false; scene.add(rope);
+const ropeBall = BALLS.findIndex((b) => b.rope);
+
 // ------------------------------------------------------------ fx
 const particles = new Particles(scene);
 const skids = new Skids(scene);
 
 // ------------------------------------------------------------ car visuals
 let car, body, bodyGeo, bodyMat, nodeKind, baseCol, wheelGroups = [], lines, lineGeo;
-let faceRecs = [], bodyIdxAttr, glassIdxAttr, lastBroken = -1;
+let details = [], faceRecs = [], bodyIdxAttr, glassIdxAttr, lastBroken = -1;
 let engineMesh, engineNodes = [], glassMesh, tintMesh, glassGeo, glassPanels = [], frameMesh, frameBeams = [], interior = [];
 let headMeshes = [], tailMeshes = [], headLights = [];
-const GLASS = [0.08, 0.13, 0.18], DARK = [0.06, 0.06, 0.07], PRIMER = [0.14, 0.13, 0.13];
+const GLASS = [0.08, 0.13, 0.18], DARK = [0.06, 0.06, 0.07], PRIMER = [0.14, 0.13, 0.13], CHROME = [0.62, 0.64, 0.67];
 let showBeams = false;
 
 function disposeCar() {
@@ -180,6 +187,7 @@ function disposeCar() {
   scene.remove(frameMesh); frameMesh.geometry.dispose();
   scene.remove(engineMesh); engineMesh.geometry.dispose();
   for (const it of interior) scene.remove(it.mesh);
+  for (const dd of details) scene.remove(dd.mesh);
   for (const m of debrisMeshes) scene.remove(m);
   for (const g of wheelGroups) scene.remove(g);
   scene.remove(lines); lineGeo.dispose();
@@ -226,7 +234,7 @@ function buildCar(key) {
   const bodyIdx = [], glassIdxArr = [];
   for (const f of car.faces) {
     const [a, b, c, d] = f.q;
-    const col = f.col === 'paint' ? paint : f.col === 'glass' ? GLASS : DARK;
+    const col = f.col === 'paint' ? paint : f.col === 'glass' ? GLASS : f.col === 'chrome' ? CHROME : DARK;
     for (const n of f.q) { baseCol.set(col, n * 3); nodeKind[n] = f.col === 'paint' ? 0 : f.col === 'glass' ? 1 : 2; }
     (f.col === 'glass' ? glassIdxArr : bodyIdx).push(a, b, c, a, c, d);
   }
@@ -269,8 +277,8 @@ function buildCar(key) {
   frameBeams = [];
   const addFB = (a, b, w) => { const q = bmap.get(Math.min(a, b) * 4096 + Math.max(a, b)); if (q !== undefined) frameBeams.push({ a, b, q, w }); };
   for (let sIdx = 0; sIdx < 12; sIdx++) {
-    for (let k = 0; k < 5; k++) addFB(stn(sIdx, k), stn(sIdx, k + 1), 0.05);
-    if (sIdx < 11) for (let k = 0; k < 6; k++) addFB(stn(sIdx, k), stn(sIdx + 1, k), k === 0 || k === 5 ? 0.07 : 0.045);
+    for (let k = 0; k < 5; k++) addFB(stn(sIdx, k), stn(sIdx, k + 1), 0.035);
+    if (sIdx < 11) for (let k = 0; k < 6; k++) addFB(stn(sIdx, k), stn(sIdx + 1, k), k === 0 || k === 5 ? 0.05 : 0.035);
   }
   frameMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0x3a3d42, metalness: 0.7, roughness: 0.5 }), frameBeams.length);
   frameMesh.frustumCulled = false; frameMesh.castShadow = true; frameMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -316,11 +324,12 @@ function buildCar(key) {
   const WR = car.WR;
   wheelGroups = car.wheels.map(() => {
     const g = new THREE.Group();
-    const tg = new THREE.CylinderGeometry(WR, WR, 0.28, 24); tg.rotateZ(Math.PI / 2);
+    const tw = car.def.tyreW || 0.26, rr = car.def.rim || 0.62;
+    const tg = new THREE.CylinderGeometry(WR, WR, tw, 24); tg.rotateZ(Math.PI / 2);
     const tyre = new THREE.Mesh(tg, new THREE.MeshLambertMaterial({ color: 0x151515 }));
-    const rg = new THREE.CylinderGeometry(WR * 0.62, WR * 0.62, 0.3, 16); rg.rotateZ(Math.PI / 2);
+    const rg = new THREE.CylinderGeometry(WR * rr, WR * rr, tw + 0.02, 16); rg.rotateZ(Math.PI / 2);
     const rim = new THREE.Mesh(rg, new THREE.MeshStandardMaterial({ color: 0x9aa0a6, metalness: 0.8, roughness: 0.3 }));
-    const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.32, WR * 1.4, 0.07), new THREE.MeshLambertMaterial({ color: 0x444444 }));
+    const spoke = new THREE.Mesh(new THREE.BoxGeometry(tw + 0.04, WR * 2 * rr * 0.95, 0.06), new THREE.MeshLambertMaterial({ color: 0x444444 }));
     const spoke2 = spoke.clone(); spoke2.rotation.x = Math.PI / 2;
     const spin = new THREE.Group(); spin.add(tyre, rim, spoke, spoke2);
     spin.traverse((o) => { o.castShadow = true; });
@@ -332,6 +341,27 @@ function buildCar(key) {
   const lampG = new THREE.SphereGeometry(0.13, 10, 8);
   headMeshes = [0, 1].map(() => { const m = new THREE.Mesh(lampG, new THREE.MeshBasicMaterial({ color: 0xfff6d0 })); scene.add(m); return m; });
   tailMeshes = [0, 1].map(() => { const m = new THREE.Mesh(lampG, new THREE.MeshBasicMaterial({ color: 0x701010 })); scene.add(m); return m; });
+  headMeshes.concat(tailMeshes).forEach((mm) => { mm.visible = false; });
+  for (const dd of details) scene.remove(dd.mesh);
+  details = [];
+  {   // body details that ride on the panels (so they fall off with them)
+    const pan = (name) => car.panels.find((p) => p.name === name);
+    const addDet = (pname, r, c, off, mesh) => { const p = pan(pname); if (!p) return; mesh.frustumCulled = false; scene.add(mesh); details.push({ mesh, n: p.nodes[r * p.cols + c], off }); };
+    const bxm = (w, h, l, mat) => new THREE.Mesh(new THREE.BoxGeometry(w, h, l), mat);
+    const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff2c8 }), plateMat = new THREE.MeshStandardMaterial({ color: 0xf2f2f0, roughness: 0.6 });
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xc8ccd0, metalness: 0.9, roughness: 0.25 }), paintMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(...paint), roughness: 0.38, metalness: 0.4 });
+    const lw = 0.17 + car.def.WB[11] * 0.1;
+    addDet('grille', 1, 0, [0.22, -0.1, 0.03], bxm(0.34, 0.15, 0.06, lampMat)); addDet('grille', 1, 4, [-0.22, -0.1, 0.03], bxm(0.34, 0.15, 0.06, lampMat));
+    addDet('tailPanel', 1, 0, [0.2, -0.08, -0.03], bxm(0.3, 0.12, 0.05, tailMeshes[1].material)); addDet('tailPanel', 1, 4, [-0.2, -0.08, -0.03], bxm(0.3, 0.12, 0.05, tailMeshes[0].material));
+    addDet('grille', 0, 2, [0, 0.1, 0.045], bxm(0.5, 0.12, 0.012, plateMat)); addDet('tailPanel', 0, 2, [0, 0.1, -0.045], bxm(0.5, 0.12, 0.012, plateMat));
+    for (const k of [1, 2, 3]) addDet('grille', 1, k, [0, -0.2, 0.03], bxm(0.24, 0.03, 0.03, chromeMat));
+    for (const sd of ['L', 'R']) {
+      const sg = sd === 'L' ? 1 : -1;
+      addDet('door' + sd, 2, 4, [sg * 0.1, 0.1, 0.05], bxm(0.1, 0.1, 0.2, paintMat));
+      addDet('door' + sd, 2, 1, [sg * 0.03, -0.05, 0], bxm(0.025, 0.03, 0.14, chromeMat));
+    }
+  }
+
   headLights = [0, 1].map(() => {
     const l = new THREE.SpotLight(0xfff2d0, 0, 70, 0.55, 0.5, 1.2); scene.add(l); scene.add(l.target); return l;
   });
@@ -406,6 +436,16 @@ function updateVisuals() {
     engineNodes.forEach((n, i) => { ep[i * 3] = car.px[n]; ep[i * 3 + 1] = car.py[n]; ep[i * 3 + 2] = car.pz[n]; });
     engineMesh.geometry.attributes.position.needsUpdate = true; engineMesh.geometry.computeVertexNormals();
   }
+  {
+    const L = V(car.left), U = V(car.up), F = V(car.fwd);
+    _m.makeBasis(L, U, F); _qa.setFromRotationMatrix(_m);
+    for (const dd of details) {
+      const n = dd.n, x = car.rx[n], y = car.ry[n], z = car.rz[n];
+      dd.mesh.visible = !(x === 0 && y === 0 && z === 0);
+      dd.mesh.position.set(x, y, z).addScaledVector(L, dd.off[0]).addScaledVector(U, dd.off[1]).addScaledVector(F, dd.off[2]);
+      dd.mesh.quaternion.copy(_qa);
+    }
+  }
   // interior / engine follow the shell
   {
     const L = V(car.left), U = V(car.up), F = V(car.fwd);
@@ -432,6 +472,7 @@ function updateVisuals() {
     } else if (w.front) _m.makeBasis(lS, up, fS); else _m.makeBasis(left, up, fwd);
     g.quaternion.setFromRotationMatrix(_m);
     g.userData.spin.rotation.x = w.spin;
+    const fl = w.flat || 0; g.scale.set(1, 1 - 0.18 * fl, 1);
   });
 
   // lamps follow the deforming bodywork
@@ -519,6 +560,30 @@ function updateFx(dt, inp) {
     for (let k = 0; k < 6; k++) particles.emit(b[0], b[1], b[2], car.vcom[0] * 0.3 + (Math.random() - 0.5) * 7, Math.random() * 5, car.vcom[2] * 0.3 + (Math.random() - 0.5) * 7, 1.6 + Math.random(), 0.07 + Math.random() * 0.06, -0.2, 0.12, 0.12, 0.13, 1, -12);
     if (i % 2 === 0) particles.emit(b[0], b[1], b[2], (Math.random() - 0.5), 0.6, (Math.random() - 0.5), 1.0, 0.5, 2.5, 0.6, 0.6, 0.6, 0.3, 0.3);
   }
+  if (car.fire > 0 && !car.exploded || car.fire > 0) {            // burning fuel: flames and black smoke
+    for (const n of [FUEL_N, ENG]) {
+      const p = nodePos(n);
+      if (Math.random() < dt * 60) particles.emit(p.x + (Math.random() - 0.5) * 0.4, p.y + 0.1, p.z + (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.8, 2 + Math.random() * 2, (Math.random() - 0.5) * 0.8, 0.6, 0.5, -0.3, 1, 0.45 + Math.random() * 0.3, 0.08, 0.85, 1);
+      if (Math.random() < dt * 30) particles.emit(p.x, p.y + 0.6, p.z, (Math.random() - 0.5) * 0.6, 2.5 + Math.random(), (Math.random() - 0.5) * 0.6, 3, 0.7, 4, 0.08, 0.08, 0.08, 0.55, 0.5);
+    }
+  }
+  for (const e of car.explosions) {
+    const R = Math.random;
+    for (let i = 0; i < 90; i++) particles.emit(e[0], e[1], e[2], (R() - 0.5) * 16, R() * 12, (R() - 0.5) * 16, 0.6 + R() * 0.5, 0.9, 2, 1, 0.4 + R() * 0.4, 0.08, 0.9, -2);
+    for (let i = 0; i < 40; i++) particles.emit(e[0], e[1], e[2], (R() - 0.5) * 8, 2 + R() * 6, (R() - 0.5) * 8, 3, 1.2, 5, 0.1, 0.1, 0.1, 0.6, 0.5);
+    for (let i = 0; i < 40; i++) particles.emit(e[0], e[1], e[2], (R() - 0.5) * 25, R() * 14, (R() - 0.5) * 25, 1, 0.1, -0.3, 1, 0.75, 0.3, 1, -14);
+    crunch(0.5);
+  }
+  if (car.inLake) {                                              // splashes where the car is in the water
+    car.wheels.forEach((w) => {
+      if (car.py[w.i] < WATER.y + 0.3 && car.py[w.i] > WATER.y - 0.8 && Math.hypot(car.vx[w.i], car.vz[w.i]) > 2 && Math.random() < dt * 40) {
+        particles.emit(car.px[w.i], WATER.y + 0.05, car.pz[w.i], (Math.random() - 0.5) * 3, 2 + Math.random() * 2, (Math.random() - 0.5) * 3, 0.9, 0.2, 1.5, 0.85, 0.93, 1, 0.6, -9);
+      }
+    });
+  }
+  car.wheels.forEach((w) => {                                    // bare rim scraping: sparks
+    if ((w.flat || 0) > 0.6 && w.grounded && car.speed > 4 && Math.random() < dt * 30) particles.emit(car.px[w.i], car.py[w.i] - car.WR, car.pz[w.i], (Math.random() - 0.5) * 4, 1 + Math.random() * 2, (Math.random() - 0.5) * 4, 0.4, 0.08, -0.3, 1, 0.7, 0.2, 1, -12);
+  });
   particles.update(dt);
 }
 
@@ -882,6 +947,7 @@ function frame(now) {
     const sp = Math.hypot(b.vx, b.vz);
     if (sp > 0.01 && !paused) { _ax.set(b.vz, 0, -b.vx).normalize(); _q.setFromAxisAngle(_ax, sp * dt / b.r); m.quaternion.premultiply(_q); }
   });
+  if (ropeBall >= 0) { const b = BALLS[ropeBall], r = b.rope, a = ropeGeo.attributes.position; a.setXYZ(0, r.ax, r.ay, r.az); a.setXYZ(1, b.x, b.y, b.z); a.needsUpdate = true; }
   updateCamera(dt);
 
   const c = car.com;

@@ -57,3 +57,11 @@ To run locally: `python3 -m http.server` and open http://localhost:8000 (ES modu
 - `main.js` - Three.js scene, rendering, input, camera, sound, UI
 - `fx.js` - particles and skid marks
 - `physics.js` - the soft-body physics (no dependencies, runs in Node too; headless tests are easy to write against it)
+
+## More physics
+- **Lake** (east of the big jump): buoyancy, water drag, splashes. Water floods the engine and kills power.
+- **Wrecking ball** on a gantry swings across the road on a rope.
+- **Fuel leaks, fire and explosions** after heavy tank/engine damage; sparks ignite leaks.
+- **Engine damage** reduces power; **flat tyres** from blades/poles or hard rim strikes (squashed wheel, rim sparks, less grip).
+- **Hinged hood/doors** buckle and pop upward; panels keep a stand-off so they never sink into each other (but don't collide).
+- Real-car proportions and detail meshes (bumpers, lamps, plates, mirrors, handles).

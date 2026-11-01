@@ -153,7 +153,7 @@ export const NCH = CORE + NSTA;       // first panel node
 // per-vehicle data. Arrays are per station (rear -> front).
 export const VEHICLES = {
   sedan: {
-    name: 'Sedan', blurb: 'Mid-size family saloon, balanced rear-wheel drive',
+    name: 'Sedan', tyreW: 0.24, rim: 0.66, blurb: 'Balanced rear-wheel drive',
     Z: [-2.25, -2.05, -1.65, -1.25, -0.85, -0.45, -0.05, 0.35, 0.75, 1.2, 1.7, 2.25],
     YF: [0.48, 0.44, 0.42, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40, 0.41, 0.43, 0.46],
     YB: [0.72, 0.78, 0.80, 0.82, 0.84, 0.84, 0.84, 0.84, 0.82, 0.80, 0.78, 0.66],
@@ -162,35 +162,35 @@ export const VEHICLES = {
     WT: [0.68, 0.72, 0.75, 0.70, 0.66, 0.66, 0.66, 0.68, 0.78, 0.78, 0.76, 0.68],
     YS: [0.005, 0.0055, 0.007, 0.012, 0.015, 0.016, 0.015, 0.011, 0.008, 0.006, 0.0055, 0.005],
     WF: 0.72, WX: 1.0, WR: 0.35, axF: 1.45, axR: -1.35,
-    EA: 4.0e5, mass: 1150, mEng: 140, mFuel: 45, mWheel: 35, pm: 1, tyreW: 0.24, rim: 0.66,
+    EA: 4.0e5, mass: 1150, mEng: 140, mFuel: 45, mWheel: 35, pm: 1,
     rideF: 1.3, rideR: 1.5, travelUp: 0.11, travelDown: 0.13,
     torque: 190, final: 3.9, drive: 'rwd', grip: 1.15, drag: 0.02, brake: 4500, bed: false,
   },
   pickup: {
-    name: 'Pickup', blurb: 'Full-size 90s truck, heavy, all-wheel drive',
+    name: 'Pickup', tyreW: 0.3, rim: 0.55, blurb: 'Heavy, tall, all-wheel drive',
     Z: [-2.6, -2.4, -1.9, -1.4, -0.95, -0.5, -0.05, 0.4, 0.85, 1.3, 1.85, 2.6],
     YF: [0.65, 0.63, 0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 0.63, 0.64, 0.66],
     YB: [1.0, 1.05, 1.08, 1.08, 1.25, 1.25, 1.25, 1.22, 1.18, 1.14, 1.08, 1.0],
-    YR: [1.12, 1.15, 1.15, 1.15, 1.78, 1.82, 1.8, 1.72, 1.34, 1.3, 1.26, 1.18],
+    YR: [1.12, 1.15, 1.15, 1.15, 1.95, 2.0, 1.98, 1.9, 1.38, 1.34, 1.3, 1.2],
     WB: [0.92, 0.96, 0.98, 0.98, 0.98, 0.98, 0.98, 0.98, 0.98, 0.97, 0.94, 0.9],
     WT: [0.9, 0.92, 0.92, 0.92, 0.82, 0.8, 0.8, 0.82, 0.92, 0.92, 0.9, 0.85],
     YS: [0.006, 0.0065, 0.008, 0.013, 0.016, 0.017, 0.016, 0.012, 0.009, 0.007, 0.0065, 0.006],
     WF: 0.85, WX: 1.1, WR: 0.43, axF: 1.65, axR: -1.6,
-    EA: 6.9e5, mass: 2100, mEng: 250, mFuel: 80, mWheel: 55, pm: 1.4, tyreW: 0.3, rim: 0.55,
+    EA: 6.9e5, mass: 2100, mEng: 250, mFuel: 80, mWheel: 55, pm: 1.4,
     rideF: 1.2, rideR: 1.05, travelUp: 0.14, travelDown: 0.18,
     torque: 330, final: 4.2, drive: 'awd', grip: 1.1, drag: 0.03, brake: 6500, bed: true,
   },
   coupe: {
-    name: 'Coupe', blurb: 'Low two-door sports coupe, light and fast',
+    name: 'Coupe', tyreW: 0.26, rim: 0.72, blurb: 'Light, grippy and fast',
     Z: [-2.0, -1.85, -1.5, -1.1, -0.7, -0.3, 0.1, 0.5, 0.9, 1.3, 1.7, 2.1],
     YF: [0.38, 0.36, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.36, 0.37, 0.38],
     YB: [0.62, 0.66, 0.68, 0.7, 0.72, 0.72, 0.72, 0.7, 0.68, 0.66, 0.62, 0.55],
-    YR: [0.8, 0.88, 0.92, 1.02, 1.18, 1.23, 1.21, 1.14, 0.84, 0.8, 0.74, 0.68],
+    YR: [0.8, 0.88, 0.92, 1.1, 1.3, 1.35, 1.32, 1.22, 0.88, 0.84, 0.78, 0.7],
     WB: [0.74, 0.8, 0.82, 0.82, 0.82, 0.82, 0.82, 0.82, 0.82, 0.8, 0.76, 0.72],
     WT: [0.62, 0.68, 0.7, 0.66, 0.62, 0.6, 0.62, 0.66, 0.72, 0.72, 0.68, 0.6],
     YS: [0.0045, 0.005, 0.0065, 0.011, 0.014, 0.015, 0.014, 0.01, 0.0075, 0.0055, 0.005, 0.0045],
     WF: 0.68, WX: 0.96, WR: 0.33, axF: 1.3, axR: -1.2,
-    EA: 3.7e5, mass: 1000, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.85, tyreW: 0.26, rim: 0.72,
+    EA: 3.7e5, mass: 1000, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.85,
     rideF: 1.6, rideR: 1.8, travelUp: 0.09, travelDown: 0.11,
     torque: 175, final: 3.5, drive: 'rwd', grip: 1.3, drag: 0.014, brake: 4200, bed: false,
   },
@@ -200,27 +200,27 @@ export const VEHICLES = {
 {
   const S = VEHICLES.sedan, P = VEHICLES.pickup, mk = (o) => Object.assign({}, S, o), sc = (a, k) => a.map((v) => v * k), add = (a, k) => a.map((v) => v + k);
   VEHICLES.hatch = mk({
-    name: 'Hatchback', blurb: 'Compact five-door hatch, front-wheel drive',
-    Z: sc(S.Z, 0.92), YB: add(S.YB, -0.02), YR: [1.05, 1.25, 1.38, 1.42, 1.45, 1.46, 1.45, 1.38, 0.98, 0.95, 0.92, 0.82], tyreW: 0.21, rim: 0.7, WB: sc(S.WB, 0.96), WT: sc(S.WT, 1.03),
-    WF: 0.72, WX: 1.0, WR: 0.32, axF: 1.33, axR: -1.24, EA: 3.8e5, mass: 1050, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.9,
+    name: 'Hatchback', tyreW: 0.21, rim: 0.7, blurb: 'Small, front-wheel drive, agile',
+    Z: sc(S.Z, 0.82), YB: add(S.YB, -0.02), YR: [1.02, 1.18, 1.32, 1.4, 1.44, 1.46, 1.45, 1.38, 0.98, 0.95, 0.92, 0.8], WB: sc(S.WB, 0.96), WT: sc(S.WT, 1.03),
+    WF: 0.72, WX: 1.0, WR: 0.32, axF: 1.19, axR: -1.11, EA: 3.8e5, mass: 1050, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.9,
     rideF: 1.45, rideR: 1.65, torque: 160, final: 4.1, drive: 'fwd', grip: 1.25, drag: 0.016, brake: 4200,
   });
   VEHICLES.suv = mk({
-    name: 'SUV', blurb: 'Full-size off-road wagon, all-wheel drive', tyreW: 0.29, rim: 0.58,
+    name: 'SUV', tyreW: 0.29, rim: 0.58, blurb: 'Tall, tough, all-wheel drive',
     Z: sc(S.Z, 1.02), YF: add(S.YF, 0.14), YB: add(S.YB, 0.2), YR: [1.5, 1.72, 1.8, 1.82, 1.84, 1.84, 1.82, 1.7, 1.12, 1.08, 1.02, 0.9],
     WB: sc(S.WB, 1.05), WT: [0.9, 0.92, 0.94, 0.92, 0.9, 0.9, 0.9, 0.9, 0.92, 0.92, 0.9, 0.84], YS: P.YS,
     WF: 0.8, WX: 1.08, WR: 0.4, axF: 1.5, axR: -1.4, EA: 6.0e5, mass: 1950, mEng: 220, mFuel: 70, mWheel: 48, pm: 1.3,
     rideF: 1.25, rideR: 1.2, travelUp: 0.14, travelDown: 0.18, torque: 300, final: 4.0, drive: 'awd', grip: 1.1, drag: 0.03, brake: 6000,
   });
   VEHICLES.muscle = mk({
-    name: 'Muscle', blurb: '60s two-door muscle car, huge torque, rear-wheel drive', tyreW: 0.32, rim: 0.64,
+    name: 'Muscle', tyreW: 0.32, rim: 0.64, blurb: 'Long hood, huge torque, rear-wheel drive',
     Z: [-2.4, -2.2, -1.8, -1.4, -1.0, -0.6, -0.2, 0.2, 0.65, 1.2, 1.85, 2.55],
     YB: [0.74, 0.8, 0.82, 0.84, 0.86, 0.86, 0.86, 0.86, 0.84, 0.82, 0.8, 0.7], YR: [0.9, 0.98, 1.0, 1.1, 1.36, 1.4, 1.38, 1.3, 0.98, 0.95, 0.92, 0.84],
     WX: 1.02, axF: 1.55, axR: -1.5, EA: 4.5e5, mass: 1600, mEng: 230, mFuel: 55, mWheel: 40, pm: 1.05,
     torque: 420, final: 3.7, drive: 'rwd', grip: 1.05, drag: 0.024, brake: 4800,
   });
   VEHICLES.van = mk({
-    name: 'Van', blurb: 'Cargo van, big box with lots to break', tyreW: 0.27, rim: 0.55,
+    name: 'Van', tyreW: 0.27, rim: 0.55, blurb: 'Big box, slow, lots to break',
     Z: [-2.6, -2.35, -1.9, -1.4, -0.9, -0.4, 0.1, 0.55, 0.95, 1.35, 1.9, 2.4],
     YF: P.YF, YB: [1.1, 1.15, 1.15, 1.15, 1.15, 1.15, 1.15, 1.1, 1.0, 0.95, 0.9, 0.85], YR: [2.1, 2.15, 2.15, 2.15, 2.15, 2.15, 2.1, 2.0, 1.3, 1.25, 1.2, 1.1],
     WB: sc(P.WB, 0.99), WT: [0.93, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.9, 0.9, 0.88, 0.84], YS: P.YS,
@@ -228,12 +228,12 @@ export const VEHICLES = {
     rideF: 1.15, rideR: 1.0, travelUp: 0.14, travelDown: 0.18, torque: 290, final: 4.3, drive: 'rwd', grip: 1.05, drag: 0.04, brake: 6200,
   });
   VEHICLES.mini = mk({
-    name: 'Mini', blurb: 'Tiny city car, fragile, front-wheel drive', tyreW: 0.18, rim: 0.62,
+    name: 'Mini', tyreW: 0.18, rim: 0.62, blurb: 'Tiny and fragile, front-wheel drive',
     Z: sc(S.Z, 0.72), YB: add(S.YB, -0.05), YR: [1.02, 1.12, 1.2, 1.26, 1.3, 1.32, 1.3, 1.25, 0.94, 0.9, 0.86, 0.76], WB: sc(S.WB, 0.97), WT: sc(S.WT, 0.95),
     WF: 0.68, WX: 0.94, WR: 0.28, axF: 1.04, axR: -0.97, EA: 2.8e5, mass: 750, mEng: 80, mFuel: 30, mWheel: 22, pm: 0.7,
     rideF: 1.5, rideR: 1.7, travelUp: 0.09, travelDown: 0.11, torque: 105, final: 4.3, drive: 'fwd', grip: 1.2, drag: 0.012, brake: 3600,
   });
-  for (const d of Object.values(VEHICLES)) d.WX = Math.max(...d.WB) - 0.14;   // tyres sit under the bodywork, not outside it
+  for (const d of Object.values(VEHICLES)) d.WX = Math.max(...d.WB) - 0.14;   // tyres sit under the bodywork
 }
 
 // structural faces that stay when body panels come off: floor, end fascia, inner arch walls (bed floor for trucks)

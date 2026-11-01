@@ -330,13 +330,13 @@ export class Car {
     addPanel('rearGlass', 3, 3, (r, c) => topAt(rg0 + c * (4 - rg0) / 2, r / 2, 0.02), { mass: 7 * pm, att: rim(3, 3, 0.5), yld: 0.5, glass: true });
     const bumper = (end, dir) => (r, c) => {
       const x = (c / 4 * 2 - 1) * (WB[end] * 0.98), u = Math.abs(x) / WB[end];
-      return [x, YF[end] + (r === 0 ? 0.03 : 0.22), Z[end] + dir * (0.07 - 0.2 * u * u)];
+      return [x, YF[end] + (r === 0 ? -0.07 : 0.15), Z[end] + dir * (0.07 - 0.2 * u * u)];
     };
     addPanel('bumperR', 2, 5, bumper(0, -1), { mass: 11 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 2, col: 'chrome' });
     addPanel('bumperF', 2, 5, bumper(11, 1), { mass: 12 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 9, col: 'chrome' });
 
     const fascia = (end, dir) => (r, c) => {
-      const y = lerp(YF[end] + 0.2, Math.max(YR[end] - 0.07, YF[end] + 0.5), r);
+      const y = lerp(YF[end] + 0.12, Math.max(YR[end] - 0.07, YF[end] + 0.5), r);
       const t = Math.min(1, Math.max(0, (y - YB[end]) / Math.max(0.05, YR[end] - YB[end])));
       const hw = WB[end] + (WT[end] - WB[end]) * t - 0.01;             // follow the body outline: narrower above the beltline
       return [(c / 4 * 2 - 1) * hw, y, Z[end] + dir * 0.04];

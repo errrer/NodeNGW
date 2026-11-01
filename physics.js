@@ -183,6 +183,45 @@ export const VEHICLES = {
   },
 };
 
+// more cars, built from the same topology with different proportions
+{
+  const S = VEHICLES.sedan, P = VEHICLES.pickup, mk = (o) => Object.assign({}, S, o), sc = (a, k) => a.map((v) => v * k), add = (a, k) => a.map((v) => v + k);
+  VEHICLES.hatch = mk({
+    name: 'Hatchback', blurb: 'Small, front-wheel drive, agile',
+    Z: sc(S.Z, 0.82), YB: add(S.YB, -0.02), YR: [1.02, 1.18, 1.32, 1.4, 1.44, 1.46, 1.45, 1.38, 0.98, 0.95, 0.92, 0.8], WB: sc(S.WB, 0.96), WT: sc(S.WT, 1.03),
+    WF: 0.7, WX: 0.95, WR: 0.32, axF: 1.19, axR: -1.11, EA: 3.8e5, mass: 1050, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.9,
+    rideF: 1.45, rideR: 1.65, torque: 160, final: 4.1, drive: 'fwd', grip: 1.25, drag: 0.016, brake: 4200,
+  });
+  VEHICLES.suv = mk({
+    name: 'SUV', blurb: 'Tall, tough, all-wheel drive',
+    Z: sc(S.Z, 1.02), YF: add(S.YF, 0.14), YB: add(S.YB, 0.2), YR: [1.5, 1.72, 1.8, 1.82, 1.84, 1.84, 1.82, 1.7, 1.12, 1.08, 1.02, 0.9],
+    WB: sc(S.WB, 1.05), WT: [0.9, 0.92, 0.94, 0.92, 0.9, 0.9, 0.9, 0.9, 0.92, 0.92, 0.9, 0.84], YS: P.YS,
+    WF: 0.8, WX: 1.08, WR: 0.4, axF: 1.5, axR: -1.4, EA: 6.0e5, mass: 1950, mEng: 220, mFuel: 70, mWheel: 48, pm: 1.3,
+    rideF: 1.25, rideR: 1.2, travelUp: 0.14, travelDown: 0.18, torque: 300, final: 4.0, drive: 'awd', grip: 1.1, drag: 0.03, brake: 6000,
+  });
+  VEHICLES.muscle = mk({
+    name: 'Muscle', blurb: 'Long hood, huge torque, rear-wheel drive',
+    Z: [-2.4, -2.2, -1.8, -1.4, -1.0, -0.6, -0.2, 0.2, 0.65, 1.2, 1.85, 2.55],
+    YB: [0.74, 0.8, 0.82, 0.84, 0.86, 0.86, 0.86, 0.86, 0.84, 0.82, 0.8, 0.7], YR: [0.9, 0.98, 1.0, 1.1, 1.36, 1.4, 1.38, 1.3, 0.98, 0.95, 0.92, 0.84],
+    WX: 1.02, axF: 1.55, axR: -1.5, EA: 4.5e5, mass: 1600, mEng: 230, mFuel: 55, mWheel: 40, pm: 1.05,
+    torque: 420, final: 3.7, drive: 'rwd', grip: 1.05, drag: 0.024, brake: 4800,
+  });
+  VEHICLES.van = mk({
+    name: 'Van', blurb: 'Big box, slow, lots to break',
+    Z: [-2.6, -2.35, -1.9, -1.4, -0.9, -0.4, 0.1, 0.55, 0.95, 1.35, 1.9, 2.4],
+    YF: P.YF, YB: [1.1, 1.15, 1.15, 1.15, 1.15, 1.15, 1.15, 1.1, 1.0, 0.95, 0.9, 0.85], YR: [2.1, 2.15, 2.15, 2.15, 2.15, 2.15, 2.1, 2.0, 1.3, 1.25, 1.2, 1.1],
+    WB: sc(P.WB, 0.99), WT: [0.93, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.9, 0.9, 0.88, 0.84], YS: P.YS,
+    WF: 0.85, WX: 1.1, WR: 0.4, axF: 1.6, axR: -1.7, EA: 6.5e5, mass: 2300, mEng: 200, mFuel: 75, mWheel: 50, pm: 1.5,
+    rideF: 1.15, rideR: 1.0, travelUp: 0.14, travelDown: 0.18, torque: 290, final: 4.3, drive: 'rwd', grip: 1.05, drag: 0.04, brake: 6200,
+  });
+  VEHICLES.mini = mk({
+    name: 'Mini', blurb: 'Tiny and fragile, front-wheel drive',
+    Z: sc(S.Z, 0.72), YB: add(S.YB, -0.05), YR: [1.1, 1.22, 1.3, 1.38, 1.42, 1.44, 1.42, 1.36, 1.0, 0.94, 0.9, 0.78], WB: sc(S.WB, 0.9), WT: sc(S.WT, 0.92),
+    WF: 0.62, WX: 0.86, WR: 0.28, axF: 1.04, axR: -0.97, EA: 2.8e5, mass: 750, mEng: 80, mFuel: 30, mWheel: 22, pm: 0.7,
+    rideF: 1.5, rideR: 1.7, travelUp: 0.09, travelDown: 0.11, torque: 105, final: 4.3, drive: 'fwd', grip: 1.2, drag: 0.012, brake: 3600,
+  });
+}
+
 // structural faces that stay when body panels come off: floor, end fascia, inner arch walls (bed floor for trucks)
 function chassisFaces(bed) {
   const F = [];
@@ -899,7 +938,7 @@ export class Car {
         const maxF = d.grip * Fn;
         let Fl = 0;
         const rear = !w.front;
-        const driven = d.drive === 'awd' || rear;
+        const driven = d.drive === 'awd' || (d.drive === 'fwd' ? w.front : rear);
         if (driven && w.alive && thrust !== 0) {
           Fl = Math.sign(thrust) * driveF;
           if (thrust < 0) Fl *= Math.max(0, 1 - Math.abs(vlong) / 14);

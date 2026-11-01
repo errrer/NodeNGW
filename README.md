@@ -11,7 +11,7 @@ A BeamNG-style soft-body driving sandbox that runs entirely in the browser (plai
   - **Slicing**: thin poles and the steel blades on the map cut straight through beams that cross them. Panels are cut at low speed, the frame and suspension at high speed (a 120 km/h blade hit can take both front wheels off). Cut sheet metal tears open instead of stretching.
   - **Breakable glass**: panes crack as the frame flexes, then shatter into flying shards.
   - Panels are heavily damped so they stay stiff instead of wobbling, and dent permanently where hit.
-- **3 vehicles**: Sedan (RWD), Pickup (AWD, heavy), Coupe (light and fast), plus 7 paint colours.
+- **8 vehicles**: Sedan (RWD), Pickup (AWD, heavy), Coupe (light and fast), Hatchback (FWD), SUV (AWD, tall), Muscle (huge torque), Van (big box), Mini (tiny and fragile), plus 7 paint colours.
 - **Automatic gearbox** with RPM, gear display, rev limiter, and engine / tyre-squeal / wind / crash sound.
 - **World**: ramps, a big jump, a skyline plateau drop, speed bumps, a mound, slalom pillars, crates, a crash wall, trees, and pushable balls.
 - **Effects**: dust, tyre smoke, sparks, glass shards, crash dust and flying chunks, coolant steam, oil drips, engine smoke and fire, skid marks, headlights and brake lights.

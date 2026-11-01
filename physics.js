@@ -262,13 +262,27 @@ export class Car {
     addPanel('bumperR', 2, 5, bumper(0, -1), { mass: 11 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 2 });
     addPanel('bumperF', 2, 5, bumper(11, 1), { mass: 12 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 9 });
 
+    const fascia = (end, dir) => (r, c) => { const x = (c / 4 * 2 - 1) * WB[end] * 0.95; return [x, lerp(YF[end] + 0.3, YR[end] - 0.03, r), Z[end] + dir * 0.04]; };
+    addPanel('grille', 2, 5, fascia(11, 1), { mass: 4 * pm, att: rim(2, 5, 0.6), yld: 0.02, anchorSt: 10, col: 'dark' });
+    addPanel('tailPanel', 2, 5, fascia(0, -1), { mass: 4 * pm, att: rim(2, 5, 0.6), yld: 0.02, anchorSt: 1 });
+    addPanel('underbody', 3, 5, (r, c) => { const { p, z } = rp(2 + c * 2), a = p[5], b = p[0]; return [lerp(a[0], b[0], r / 2), lerp(a[1], b[1], r / 2) - 0.04, z]; }, { mass: 6 * pm, att: (r, c) => ((r === 0 || r === 2) && (c === 0 || c === 4 || c === 2)) ? 0.7 : 0, yld: 0.02, col: 'dark' });
+
+    // deformable engine: 4 layers (sump, block base, block top, head) of 4 nodes each, linked by yielding beams
+    const ex = 0, ey = (YF[10] + YB[10]) / 2 + 0.05, ez = (Z[9] + Z[10]) / 2;
+    const ytop = Math.min(ey + 0.2, YR[10] - 0.1);
+    const EYO = [-0.22, -0.1, 0.1, 0.2], EHX = [0.2, 0.32, 0.32, 0.25], EHZ = [0.2, 0.3, 0.3, 0.22], SX = [1, 1, -1, -1], SZ = [1, -1, -1, 1];
+    const eng = [];
+    for (let L = 0; L < 4; L++) { const row = []; for (let c = 0; c < 4; c++) row.push(addNode(ex + SX[c] * EHX[L], Math.min(ey + EYO[L], ytop), ez + SZ[c] * EHZ[L], 1)); eng.push(row); }
+    this.engine = eng;
+
     const NN = this.NN = NX.length;
     let panelMass = 0;
     for (const p of panelDefs) { p.nodeMass = Math.max(2, p.mass / (p.rows * p.cols)); for (const r of p.idx) for (const i of r) { NM[i] = p.nodeMass; panelMass += p.nodeMass; } }
     const ringM = (d.mass - d.mEng - d.mFuel - 4 * d.mWheel - panelMass) / (NR + NSTA);
     for (let i = 0; i < NR; i++) NM[i] = ringM;
     for (let s = 0; s < NSTA; s++) NM[CORE + s] = ringM;
-    NM[ENG] = d.mEng; NM[FUEL] = d.mFuel;
+    NM[ENG] = d.mEng * 0.25; NM[FUEL] = d.mFuel;
+    for (const row of eng) for (const i of row) NM[i] = d.mEng * 0.75 / 16;
     this.nodeMass = ringM;
     const lx = this.lx = Float64Array.from(NX), ly = this.ly = Float64Array.from(NY), lz = this.lz = Float64Array.from(NZ);
     const m = this.m = Float64Array.from(NM);
@@ -377,10 +391,20 @@ export class Car {
         if (r + 1 < p.rows && c + 1 < p.cols) {
           grid.push(addW(i, p.idx[r + 1][c + 1], wg * 0.9, zg, gy, 0.5, 1, gk));
           grid.push(addW(p.idx[r][c + 1], p.idx[r + 1][c], wg * 0.9, zg, gy, 0.5, 1, gk));
-          quads.push({ q: [i, p.idx[r][c + 1], p.idx[r + 1][c + 1], p.idx[r + 1][c]], col: p.glass ? 'glass' : 'paint', panel: this.panels.length });
+          quads.push({ q: [i, p.idx[r][c + 1], p.idx[r + 1][c + 1], p.idx[r + 1][c]], col: p.glass ? 'glass' : (p.col || 'paint'), panel: this.panels.length });
         }
       }
       this.panels.push({ name: p.name, nodes, attach: back.concat(tang), tang, back, grid, glass: !!p.glass, rows: p.rows, cols: p.cols, gone: false, lost: false, crack: 0, deb: null });
+    }
+    // engine block beams: stiff cast iron that still yields and cracks when the frame is driven into it
+    for (let L = 0; L < 4; L++) for (let c = 0; c < 4; c++) {
+      addW(eng[L][c], eng[L][(c + 1) % 4], 330, 0.5, 0.012, 0.3, 1, 7);
+      if (c < 2) addW(eng[L][c], eng[L][c + 2], 300, 0.5, 0.012, 0.3, 1, 7);
+      if (L < 3) { addW(eng[L][c], eng[L + 1][c], 330, 0.5, 0.012, 0.3, 1, 7); addW(eng[L][c], eng[L + 1][(c + 1) % 4], 300, 0.5, 0.012, 0.3, 1, 7); addW(eng[L][c], eng[L + 1][(c + 3) % 4], 300, 0.5, 0.012, 0.3, 1, 7); }
+    }
+    for (const L of [1, 2]) for (let c = 0; c < 4; c++) {
+      addW(ENG, eng[L][c], 250, 0.5, 0.02, 0.4, 0, 7);
+      for (const j of nearestRing(eng[L][c], 2)) addW(eng[L][c], j, 150, 0.8, 0.03, 0.35, 0, 7);
     }
     this.faces = chassisFaces(d.bed).concat(quads);
 
@@ -410,6 +434,7 @@ export class Car {
       }
     }
     for (const p of this.panels) for (const i of p.nodes) { cpA.push(i); cpB.push(i); cpT.push(0); cpS.push(kcOf(i)); }
+    for (const row of eng) for (const i of row) { cpA.push(i); cpB.push(i); cpT.push(0); cpS.push(kcOf(i)); }
     for (const f of quads) { cpA.push(f.q[0]); cpB.push(f.q[2]); cpT.push(0.5); cpS.push(kcOf(f.q[0])); }
     this.cpA = Int32Array.from(cpA); this.cpB = Int32Array.from(cpB); this.cpT = Float64Array.from(cpT); this.cpS = Float64Array.from(cpS);
     this.NC = cpA.length;

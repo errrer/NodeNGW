@@ -153,7 +153,7 @@ const skids = new Skids(scene);
 
 // ------------------------------------------------------------ car visuals
 let car, body, bodyGeo, bodyMat, nodeKind, baseCol, wheelGroups = [], lines, lineGeo;
-let glassMesh, tintMesh, glassGeo, glassPanels = [], frameMesh, frameBeams = [], interior = [];
+let engineMesh, engineNodes = [], glassMesh, tintMesh, glassGeo, glassPanels = [], frameMesh, frameBeams = [], interior = [];
 let headMeshes = [], tailMeshes = [], headLights = [];
 const GLASS = [0.08, 0.13, 0.18], DARK = [0.06, 0.06, 0.07], PRIMER = [0.14, 0.13, 0.13];
 let showBeams = false;
@@ -163,6 +163,7 @@ function disposeCar() {
   scene.remove(body); bodyGeo.dispose(); bodyMat.dispose();
   scene.remove(glassMesh); scene.remove(tintMesh); glassGeo.dispose();
   scene.remove(frameMesh); frameMesh.geometry.dispose();
+  scene.remove(engineMesh); engineMesh.geometry.dispose();
   for (const it of interior) scene.remove(it.mesh);
   for (const m of debrisMeshes) scene.remove(m);
   for (const g of wheelGroups) scene.remove(g);
@@ -273,7 +274,18 @@ function buildCar(key) {
   addIt(bx(1.3, 0.05, 0.3, 0x2a2a30), 0, yd + 0.14, zd - 0.02);
   const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.022, 8, 20), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.7 }));
   addIt(wheel, 0.36, yd + 0.02, zd - 0.28, -1.05);
-  addIt(bx(0.72, 0.5, 0.62, 0x72777c, 0.6), 0, 0, 0, 0, ENG);
+  {   // deformable engine: sump, block, cam cover drawn from the 16 engine nodes
+    const eg = new THREE.BufferGeometry(), E = car.engine, ids = [];
+    eg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(64 * 3 / 4 * 3), 3));
+    const colL = [[0.16, 0.17, 0.18], [0.3, 0.32, 0.34], [0.45, 0.47, 0.5], [0.55, 0.14, 0.1]], cols = new Float32Array(16 * 3);
+    for (let L = 0; L < 4; L++) for (let c = 0; c < 4; c++) cols.set(colL[L], (L * 4 + c) * 3);
+    for (let L = 0; L < 3; L++) for (let c = 0; c < 4; c++) { const a = L * 4 + c, b = L * 4 + (c + 1) % 4, a2 = a + 4, b2 = b + 4; ids.push(a, b, b2, a, b2, a2); }
+    ids.push(0, 1, 2, 0, 2, 3, 12, 15, 14, 12, 14, 13);
+    eg.setAttribute('color', new THREE.BufferAttribute(cols, 3)); eg.setIndex(ids);
+    engineMesh = new THREE.Mesh(eg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.6, side: THREE.DoubleSide }));
+    engineMesh.frustumCulled = false; engineMesh.castShadow = true; engineNodes = [].concat(...E);
+    scene.add(engineMesh);
+  }
   addIt(bx(0.7, 0.2, 0.45, 0x2c2f31, 0.2), 0, 0, 0, 0, FUEL_N);
   addIt(bx(1.1, 0.45, 0.07, 0x1d1d20), 0, (d.YF[10] + d.YB[10]) / 2, Zs[10] + 0.4);
   addIt(bx(0.4, 0.14, 1.6, 0x4a4d50, 0.5), 0, d.YF[4] - 0.02, (Zs[3] + Zs[5]) / 2);
@@ -351,6 +363,11 @@ function updateVisuals() {
     frameMesh.setMatrixAt(i, _d.matrix);
   });
   frameMesh.instanceMatrix.needsUpdate = true;
+  {
+    const ep = engineMesh.geometry.attributes.position.array;
+    engineNodes.forEach((n, i) => { ep[i * 3] = car.px[n]; ep[i * 3 + 1] = car.py[n]; ep[i * 3 + 2] = car.pz[n]; });
+    engineMesh.geometry.attributes.position.needsUpdate = true; engineMesh.geometry.computeVertexNormals();
+  }
   // interior / engine follow the shell
   {
     const L = V(car.left), U = V(car.up), F = V(car.fwd);

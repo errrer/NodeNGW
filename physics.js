@@ -330,13 +330,14 @@ export class Car {
     addPanel('rearGlass', 3, 3, (r, c) => topAt(rg0 + c * (4 - rg0) / 2, r / 2, 0.02), { mass: 7 * pm, att: rim(3, 3, 0.5), yld: 0.5, glass: true });
     const bumper = (end, dir) => (r, c) => {
       const x = (c / 4 * 2 - 1) * (WB[end] * 0.98), u = Math.abs(x) / WB[end];
-      return [x, YF[end] + (r === 0 ? -0.07 : 0.15), Z[end] + dir * (0.07 - 0.2 * u * u)];
+      const bb = Math.min(YF[end] - 0.07, 0.4);
+      return [x, bb + (r === 0 ? 0 : 0.22), Z[end] + dir * (0.07 - 0.2 * u * u)];
     };
     addPanel('bumperR', 2, 5, bumper(0, -1), { mass: 11 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 2, col: 'chrome' });
     addPanel('bumperF', 2, 5, bumper(11, 1), { mass: 12 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 9, col: 'chrome' });
 
     const fascia = (end, dir) => (r, c) => {
-      const y = lerp(YF[end] + 0.12, Math.max(YR[end] - 0.07, YF[end] + 0.5), r);
+      const y = lerp(Math.min(YF[end] + 0.12, 0.58), Math.max(YR[end] - 0.07, YF[end] + 0.5), r);
       const t = Math.min(1, Math.max(0, (y - YB[end]) / Math.max(0.05, YR[end] - YB[end])));
       const hw = WB[end] + (WT[end] - WB[end]) * t - 0.01;             // follow the body outline: narrower above the beltline
       return [(c / 4 * 2 - 1) * hw, y, Z[end] + dir * 0.04];
@@ -1017,7 +1018,7 @@ export class Car {
       const L = Math.hypot(px[bk.a] - px[bk.b], py[bk.a] - py[bk.b], pz[bk.a] - pz[bk.b]), comp = 1 - L / bk.rest;
       if (comp > 0.03) {
         if (comp > 0.1 && !p.released) p.popped = true;
-        const f = Math.min(3000, 9000 * (comp - 0.03)) / bk.mids.length, u = this.up;
+        const f = Math.min(900, 4000 * (comp - 0.03)) / bk.mids.length, u = this.up;
         for (const i of bk.mids) { fx[i] += u[0] * f; fy[i] += u[1] * f; fz[i] += u[2] * f; }
       }
     }
@@ -1025,8 +1026,17 @@ export class Car {
     {
       const v2 = this.vcom[0] * this.vcom[0] + this.vcom[1] * this.vcom[1] + this.vcom[2] * this.vcom[2];
       if (v2 > 25) for (const p of this.panels) if (p.released && p.lift && !p.gone) {
-        const f = 0.6 * v2 * 1.2 / p.nodes.length, u = this.up;
+        let pm = 0; for (const i of p.nodes) pm += m[i];
+        const f = Math.min(0.25 * v2, 1.2 * pm * G) / p.nodes.length, u = this.up;
         for (const i of p.nodes) { fx[i] += u[0] * f; fy[i] += u[1] * f; fz[i] += u[2] * f; }
+      }
+      // a hood, boot lid or door hanging on its hinge is damped against the hinge so it swings instead of flailing
+      for (const p of this.panels) if (p.released && p.hinged && !p.gone && p.hingeTang.length) {
+        let hx = 0, hy = 0, hz = 0;
+        const hn0 = p.nodes.length;
+        for (const i of p.nodes) { hx += vx[i]; hy += vy[i]; hz += vz[i]; }
+        hx /= hn0; hy /= hn0; hz /= hn0;
+        for (const i of p.nodes) { const k = m[i] * 6; fx[i] -= k * (vx[i] - hx) * 0.5; fy[i] -= k * (vy[i] - hy) * 0.5; fz[i] -= k * (vz[i] - hz) * 0.5; }
       }
     }
     // suspension struts: progressive spring, bump-stops, different damping in compression and rebound

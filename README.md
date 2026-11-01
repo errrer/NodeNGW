@@ -7,6 +7,8 @@ A BeamNG-style soft-body driving sandbox that runs entirely in the browser (plai
   - A stiff passenger cell with crumple zones front and rear. Beams yield plastically and harden as they crush (about 0.7 m of nose crush at 60 km/h, 1.5 m at 100 km/h), and snap when over-stretched.
   - **Real suspension**: wishbone arms plus a spring/damper strut per wheel with bump stops, droop limits, and different damping in compression and rebound. Ride height self-calibrates at start-up.
   - **Independent body parts**: bumpers, hood, trunk, roof, doors, fenders, quarter panels, skirts and glass are each their own node grid held on by breakable hinges and clips. When the mounts fail the part comes off as rigid tumbling debris and exposes the steel frame, engine, radiator, fuel tank and seats underneath. Wheels can be torn off too. Grille, tail panel and underbody panels cover the rest of the car. The engine is a 16-node deformable block that dents when the frame is driven into it. Parts only collide with the world, never with each other.
+  - **Wheels fall off** when their suspension arms are torn out or crushed, then roll away on their own.
+  - **Slicing**: thin poles and the steel blades on the map cut straight through beams that cross them. Panels are cut at low speed, the frame and suspension at high speed (a 120 km/h blade hit can take both front wheels off). Cut sheet metal tears open instead of stretching.
   - **Breakable glass**: panes crack as the frame flexes, then shatter into flying shards.
   - Panels are heavily damped so they stay stiff instead of wobbling, and dent permanently where hit.
 - **3 vehicles**: Sedan (RWD), Pickup (AWD, heavy), Coupe (light and fast), plus 7 paint colours.
@@ -19,7 +21,7 @@ A BeamNG-style soft-body driving sandbox that runs entirely in the browser (plai
 - Keyboard, touch buttons and gamepad.
 
 ## More to crash into
-A pole field (east), lone poles, a crate pyramid, brick wall, jersey-barrier chicane, an arch (west), heavy blocks, and a second kicker ramp. Poles are wrapped around by the nose instead of pushing through.
+A pole field (east), lone poles, a crate pyramid, brick wall, jersey-barrier chicane, an arch (west), heavy blocks, four sharp steel blades, and a second kicker ramp. Poles are wrapped around by the nose instead of pushing through.
 
 ## Controls
 | Key | Action |

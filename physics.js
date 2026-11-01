@@ -100,6 +100,9 @@ for (let i = 0; i < 4; i++) box(-70 + i * 6, -1, -45 + (i % 2) * 5, -66 + i * 6,
 box(-95, -1, -6, -94, 4, 6, 'wall'); box(-86, -1, -6, -85, 4, 6, 'wall'); box(-95, 4, -6, -85, 5, 6, 'wall');
 box(-60, -1, 60, -56, 3, 64, 'block'); box(-60, -1, 70, -56, 5, 74, 'block'); box(-50, -1, 80, -44, 2, 86, 'block');
 
+// sharp steel blades: they slice through anything that hits them hard enough
+box(58, -1, 40, 66, 3.5, 40.08, 'blade'); box(68, -1, 52, 76, 3.5, 52.08, 'blade'); box(100, -1, -12, 100.08, 3.5, -4, 'blade'); box(-35, -1, -90, -27, 3.5, -89.92, 'blade');
+
 export const TREES = [];
 {
   const R = rng(1337); let tries = 0;
@@ -224,7 +227,7 @@ export class Car {
     ];
     for (const w of this.wheels) {
       addNode(w.left ? d.WX : -d.WX, d.WR, w.front ? d.axF : d.axR, d.mWheel);
-      w.spin = 0; w.spinVel = 0; w.grounded = false; w.skid = 0; w.vlat = 0; w.alive = true; w.beams = []; w.arms = [];
+      w.spin = 0; w.spinVel = 0; w.grounded = false; w.skid = 0; w.vlat = 0; w.alive = true; w.detached = false; w.beams = []; w.arms = [];
     }
     addNode(0, (YF[10] + YB[10]) / 2 + 0.05, (Z[9] + Z[10]) / 2, d.mEng);
     addNode(0, (YF[1] + YB[1]) / 2, (Z[1] + Z[2]) / 2, d.mFuel);
@@ -359,8 +362,8 @@ export class Car {
       const s2 = s1 + 1;
       const nearK = w.left ? 0 : 5, farK = w.left ? 5 : 0;
       for (const s of [s1, s2]) {
-        w.arms.push(addW(w.i, st(s, nearK), 190, 0.1, 0.12, 0.4, 0, 3));
-        w.arms.push(addW(w.i, st(s, farK), 190, 0.1, 0.12, 0.4, 0, 3));
+        w.arms.push(addW(w.i, st(s, nearK), 190, 0.1, 0.12, 0.3, 0, 3));
+        w.arms.push(addW(w.i, st(s, farK), 190, 0.1, 0.12, 0.3, 0, 3));
       }
       const topS = w.front ? s1 : s2;
       const top = st(topS, w.left ? 1 : 4);
@@ -508,7 +511,7 @@ export class Car {
     this.dead.fill(0);
     this.lostParts = 0; this.breaks.length = 0; this.lostEvents.length = 0;
     this.steerAngle = 0; this.plastic = 0; this.acc = 0; this.gear = 1; this.rpm = 900; this.shiftT = 0;
-    for (const w of this.wheels) { w.spin = 0; w.spinVel = 0; w.grounded = false; w.skid = 0; w.alive = true; }
+    for (const w of this.wheels) { w.spin = 0; w.spinVel = 0; w.grounded = false; w.skid = 0; w.alive = true; w.detached = false; }
     this.computeFrame();
   }
 
@@ -811,7 +814,7 @@ export class Car {
         }
         // attachments and panel sheet metal torn out when crushed flat
         const kd = this.bkind[q];
-        if ((kd === 2 && L < 0.6 * this.bL00[q]) || (kd === 1 && L < 0.22 * this.bL00[q])) {
+        if ((kd === 2 && L < 0.6 * this.bL00[q]) || (kd === 1 && L < 0.22 * this.bL00[q]) || (kd === 3 && L < 0.45 * this.bL00[q])) {
           this.broken[q] = 1; if (this.breaks.length < 30) this.breaks.push([px[a], py[a], pz[a], kd]);
         }
       }
@@ -841,6 +844,8 @@ export class Car {
       const b = OBSTACLES[o];
       if (com[0] > b.min[0] - 8 && com[0] < b.max[0] + 8 && com[2] > b.min[2] - 8 && com[2] < b.max[2] + 8 && com[1] > b.min[1] - 8 && com[1] < b.max[1] + 8) near.push(b);
     }
+    this._sl = (this._sl || 0) + 1;
+    if ((this._sl & 3) === 0 && near.length) { const spd = this.speed; if (spd > 4) for (const b of near) if (b.kind === 'pole' || b.kind === 'blade') this.slice(b, spd); }
     const fwd = this.fwd, vlongCar = this.forwardSpeed;
 
     // input -> drive / brake
@@ -861,6 +866,14 @@ export class Car {
     for (const w of this.wheels) {
       const i = w.i;
       const x = px[i], y = py[i], z = pz[i];
+      if (w.detached) {      // wheel that has come off: a free rolling ball, no longer driven or steered
+        w.grounded = false; w.skid = 0;
+        if (this.contact(x, y, z, vx[i], vy[i], vz[i], WR, m[i], 0.03, false, near, KG, CG, this.com)) {
+          fx[i] += this._F[0] - vx[i] * m[i] * 0.25; fy[i] += this._F[1]; fz[i] += this._F[2] - vz[i] * m[i] * 0.25;
+        }
+        w.spinVel = Math.hypot(vx[i], vz[i]) / WR; w.spin += w.spinVel * dt;
+        continue;
+      }
       const pen = groundH(x, z) + WR - y;
       w.grounded = false; w.skid = 0;
       if (pen > 0) {
@@ -917,7 +930,15 @@ export class Car {
       w.spin += w.spinVel * dt;
     }
     this.groundedCount = grounded;
-    for (const w of this.wheels) { let intact = 0; for (const q of w.arms) if (!this.broken[q]) intact++; w.alive = intact >= 2; }
+    for (const w of this.wheels) {
+      let intact = 0; for (const q of w.arms) if (!this.broken[q]) intact++;
+      w.alive = intact >= 2 && !w.detached;
+      if (!w.alive && !w.detached) {     // last mounts gone: the wheel falls off
+        w.detached = true;
+        for (const q of w.beams) this.broken[q] = 1;
+        if (this.lostEvents.length < 12) this.lostEvents.push([px[w.i], py[w.i], pz[w.i], 'wheel', 0, vx[w.i], vy[w.i], vz[w.i]]);
+      }
+    }
 
     // body collision points (ground, boxes). Light panel nodes get softer contacts so they stay stable.
     for (let c = 0; c < this.NC; c++) {
@@ -949,6 +970,29 @@ export class Car {
     }
     this.time += dt;
     if (bad) this.reset(0, 0, 0);
+  }
+
+  // thin sharp obstacles (poles, blades) cut any beam that crosses them: panels at low speed, the frame and suspension when fast
+  slice(b, spd) {
+    const { px, py, pz } = this, e = 0.02;
+    const lo = [b.min[0] - e, b.min[1] - e, b.min[2] - e], hi = [b.max[0] + e, b.max[1] + e, b.max[2] + e];
+    for (let q = 0; q < this.NB; q++) {
+      if (this.broken[q]) continue;
+      const kd = this.bkind[q];
+      if (kd === 4 || kd === 7) continue;
+      if (spd < (kd === 0 ? 12 : (kd === 3 || kd === 5) ? 8 : 4)) continue;
+      const a = this.ba[q], c = this.bb[q];
+      const o = [px[a], py[a], pz[a]], d = [px[c] - px[a], py[c] - py[a], pz[c] - pz[a]];
+      if (Math.max(o[0], o[0] + d[0]) < lo[0] || Math.min(o[0], o[0] + d[0]) > hi[0] || Math.max(o[1], o[1] + d[1]) < lo[1] || Math.min(o[1], o[1] + d[1]) > hi[1] || Math.max(o[2], o[2] + d[2]) < lo[2] || Math.min(o[2], o[2] + d[2]) > hi[2]) continue;
+      let t0 = 0, t1 = 1, ok = true;
+      for (let k = 0; k < 3 && ok; k++) {
+        if (Math.abs(d[k]) < 1e-9) { if (o[k] < lo[k] || o[k] > hi[k]) ok = false; }
+        else { let ta = (lo[k] - o[k]) / d[k], tb = (hi[k] - o[k]) / d[k]; if (ta > tb) { const t = ta; ta = tb; tb = t; } if (ta > t0) t0 = ta; if (tb < t1) t1 = tb; if (t0 > t1) ok = false; }
+      }
+      if (!ok) continue;
+      this.broken[q] = 1;
+      if (this.breaks.length < 30) this.breaks.push([o[0] + d[0] * (t0 + t1) / 2, o[1] + d[1] * (t0 + t1) / 2, o[2] + d[2] * (t0 + t1) / 2, 9]);
+    }
   }
 
   stepBalls(near, dt) {

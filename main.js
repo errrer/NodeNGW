@@ -116,6 +116,7 @@ const MAT = {
   tree: new THREE.MeshLambertMaterial({ color: 0x5a3a1e }),
   pole: new THREE.MeshStandardMaterial({ color: 0x9aa3ab, metalness: 0.6, roughness: 0.45 }),
   block: new THREE.MeshLambertMaterial({ color: 0x777b80 }),
+  blade: new THREE.MeshStandardMaterial({ color: 0xd8dde2, metalness: 0.9, roughness: 0.2 }),
 };
 for (const o of OBSTACLES) {
   if (o.kind === 'tree') continue;
@@ -155,6 +156,7 @@ const skids = new Skids(scene);
 
 // ------------------------------------------------------------ car visuals
 let car, body, bodyGeo, bodyMat, nodeKind, baseCol, wheelGroups = [], lines, lineGeo;
+let faceRecs = [], bodyIdxAttr, glassIdxAttr, lastBroken = -1;
 let engineMesh, engineNodes = [], glassMesh, tintMesh, glassGeo, glassPanels = [], frameMesh, frameBeams = [], interior = [];
 let headMeshes = [], tailMeshes = [], headLights = [];
 const GLASS = [0.08, 0.13, 0.18], DARK = [0.06, 0.06, 0.07], PRIMER = [0.14, 0.13, 0.13];
@@ -221,7 +223,15 @@ function buildCar(key) {
   const posAttr = new THREE.BufferAttribute(new Float32Array(NN * 3), 3);
   bodyGeo.setAttribute('position', posAttr);
   bodyGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(baseCol), 3));
-  bodyGeo.setIndex(bodyIdx);
+  const bq = new Map();
+  for (let q = 0; q < car.NB; q++) bq.set(Math.min(car.ba[q], car.bb[q]) * 4096 + Math.max(car.ba[q], car.bb[q]), q);
+  faceRecs = car.faces.map((f) => {
+    const be = [];
+    for (let k = 0; k < 4; k++) { const a = f.q[k], b = f.q[(k + 1) % 4], q = bq.get(Math.min(a, b) * 4096 + Math.max(a, b)); if (q !== undefined) be.push(q); }
+    return { q: f.q, glass: f.col === 'glass', panel: f.panel, beams: be };
+  });
+  bodyIdxAttr = new THREE.BufferAttribute(new Uint32Array(bodyIdx.length), 1); bodyGeo.setIndex(bodyIdxAttr);
+  lastBroken = -1;
   bodyMat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.38, metalness: 0.4, transparent: showBeams, opacity: showBeams ? 0.3 : 1 });
   body = new THREE.Mesh(bodyGeo, bodyMat);
   body.castShadow = true; body.frustumCulled = false;
@@ -235,7 +245,7 @@ function buildCar(key) {
   for (const p of glassPanels) p.nodes.forEach((n, k) => { const r = Math.floor(k / p.cols), c = k % p.cols; gUV[n * 2] = c / (p.cols - 1); gUV[n * 2 + 1] = r / (p.rows - 1); });
   glassGeo.setAttribute('uv', new THREE.BufferAttribute(gUV, 2));
   glassGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(NN * 4), 4));
-  glassGeo.setIndex(glassIdxArr);
+  glassIdxAttr = new THREE.BufferAttribute(new Uint32Array(glassIdxArr.length), 1); glassGeo.setIndex(glassIdxAttr);
   tintMesh = new THREE.Mesh(glassGeo, new THREE.MeshPhongMaterial({ color: 0x1b2c3a, transparent: true, opacity: 0.38, specular: 0xffffff, shininess: 120, depthWrite: false, side: THREE.DoubleSide }));
   tintMesh.frustumCulled = false; tintMesh.renderOrder = 2;
   glassMesh = new THREE.Mesh(glassGeo, new THREE.MeshBasicMaterial({ map: crackTexture(), vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
@@ -341,6 +351,21 @@ function updateVisuals() {
   bodyGeo.computeVertexNormals();
   glassGeo.computeVertexNormals();
 
+  if (frameCount % 3 === 0) {   // faces whose edges have been cut or torn disappear (sliced panels, ripped sheet metal)
+    const bc = car.brokenCount;
+    if (bc !== lastBroken) {
+      lastBroken = bc;
+      let nb = 0, ng = 0; const bi = bodyIdxAttr.array, gi = glassIdxAttr.array;
+      for (const f of faceRecs) {
+        if (!(f.panel !== undefined && car.panels[f.panel].gone)) { let cut = false; for (const q of f.beams) if (car.broken[q]) { cut = true; break; } if (cut) continue; }
+        const [a, b, c, d] = f.q, arr = f.glass ? gi : bi; let o = f.glass ? ng : nb;
+        arr[o++] = a; arr[o++] = b; arr[o++] = c; arr[o++] = a; arr[o++] = c; arr[o++] = d;
+        if (f.glass) ng = o; else nb = o;
+      }
+      bodyGeo.setDrawRange(0, nb); glassGeo.setDrawRange(0, ng);
+      bodyIdxAttr.needsUpdate = true; glassIdxAttr.needsUpdate = true;
+    }
+  }
   if (frameCount % 4 === 0) {   // dent colouring and glass cracks
     const nd = car.updateNodeDamage(), cc = bodyGeo.attributes.color.array;
     for (let n = 0; n < NN; n++) {
@@ -388,7 +413,12 @@ function updateVisuals() {
   car.wheels.forEach((w, k) => {
     const g = wheelGroups[k];
     g.position.set(car.px[w.i], car.py[w.i], car.pz[w.i]);
-    if (w.front) _m.makeBasis(lS, up, fS); else _m.makeBasis(left, up, fwd);
+    if (w.detached) {                       // a wheel that came off rolls on its own, pointing where it is travelling
+      const vx = car.vx[w.i], vz = car.vz[w.i];
+      if (Math.hypot(vx, vz) > 0.3) w.hd = Math.atan2(vx, vz);
+      const h = w.hd === undefined ? car.yaw : w.hd;
+      _m.makeBasis(new THREE.Vector3(Math.cos(h), 0, -Math.sin(h)), new THREE.Vector3(0, 1, 0), new THREE.Vector3(Math.sin(h), 0, Math.cos(h)));
+    } else if (w.front) _m.makeBasis(lS, up, fS); else _m.makeBasis(left, up, fwd);
     g.quaternion.setFromRotationMatrix(_m);
     g.userData.spin.rotation.x = w.spin;
   });

@@ -163,6 +163,7 @@ export const VEHICLES = {
     YS: [0.005, 0.0055, 0.007, 0.012, 0.015, 0.016, 0.015, 0.011, 0.008, 0.006, 0.0055, 0.005],
     WF: 0.72, WX: 1.0, WR: 0.35, axF: 1.45, axR: -1.35,
     EA: 4.0e5, mass: 1150, mEng: 140, mFuel: 45, mWheel: 35, pm: 1,
+    look: { bumper: 'paint', grille: 'paint', lamp: 'slim', face: 'intake', color: 'silver' },
     rideF: 1.3, rideR: 1.5, travelUp: 0.11, travelDown: 0.13,
     torque: 190, final: 3.9, drive: 'rwd', grip: 1.15, drag: 0.02, brake: 4500, bed: false,
   },
@@ -170,8 +171,8 @@ export const VEHICLES = {
     name: 'Pickup', tyreW: 0.3, rim: 0.55, blurb: 'Heavy, tall, all-wheel drive',
     Z: [-2.6, -2.4, -1.9, -1.4, -0.95, -0.5, -0.05, 0.4, 0.85, 1.3, 1.85, 2.6],
     YF: [0.65, 0.63, 0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 0.63, 0.64, 0.66],
-    YB: [1.0, 1.05, 1.08, 1.08, 1.25, 1.25, 1.25, 1.22, 1.18, 1.14, 1.08, 1.0],
-    YR: [1.12, 1.15, 1.15, 1.15, 1.95, 2.0, 1.98, 1.9, 1.38, 1.34, 1.3, 1.2],
+    YB: [1.0, 1.05, 1.08, 1.08, 1.25, 1.25, 1.25, 1.22, 1.2, 1.18, 1.14, 1.08],
+    YR: [1.12, 1.15, 1.15, 1.15, 1.95, 2.0, 1.98, 1.9, 1.5, 1.46, 1.44, 1.4],
     WB: [0.92, 0.96, 0.98, 0.98, 0.98, 0.98, 0.98, 0.98, 0.98, 0.97, 0.94, 0.9],
     WT: [0.9, 0.92, 0.92, 0.92, 0.82, 0.8, 0.8, 0.82, 0.92, 0.92, 0.9, 0.85],
     YS: [0.006, 0.0065, 0.008, 0.013, 0.016, 0.017, 0.016, 0.012, 0.009, 0.007, 0.0065, 0.006],
@@ -179,20 +180,22 @@ export const VEHICLES = {
     EA: 6.9e5, mass: 2100, mEng: 250, mFuel: 80, mWheel: 55, pm: 1.4,
     rideF: 1.2, rideR: 1.05, travelUp: 0.14, travelDown: 0.18,
     torque: 330, final: 4.2, drive: 'awd', grip: 1.1, drag: 0.03, brake: 6500, bed: true,
+    look: { bumper: 'dark', grille: 'dark', lamp: 'slim', face: 'bars', color: 'green' },
   },
   coupe: {
     name: 'Coupe', tyreW: 0.26, rim: 0.72, blurb: 'Light, grippy and fast',
     Z: [-2.0, -1.85, -1.5, -1.1, -0.7, -0.3, 0.1, 0.5, 0.9, 1.3, 1.7, 2.1],
     YF: [0.38, 0.36, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.36, 0.37, 0.38],
-    YB: [0.62, 0.66, 0.68, 0.7, 0.72, 0.72, 0.72, 0.7, 0.68, 0.66, 0.62, 0.55],
-    YR: [0.8, 0.88, 0.92, 1.1, 1.3, 1.35, 1.32, 1.22, 0.88, 0.84, 0.78, 0.7],
-    WB: [0.74, 0.8, 0.82, 0.82, 0.82, 0.82, 0.82, 0.82, 0.82, 0.8, 0.76, 0.72],
-    WT: [0.62, 0.68, 0.7, 0.66, 0.62, 0.6, 0.62, 0.66, 0.72, 0.72, 0.68, 0.6],
+    YB: [0.62, 0.66, 0.68, 0.7, 0.72, 0.72, 0.72, 0.7, 0.68, 0.64, 0.6, 0.53],
+    YR: [0.78, 0.86, 0.94, 1.06, 1.22, 1.27, 1.25, 1.16, 0.84, 0.8, 0.74, 0.64],
+    WB: [0.78, 0.84, 0.86, 0.86, 0.86, 0.86, 0.86, 0.86, 0.86, 0.84, 0.8, 0.74],
+    WT: [0.6, 0.66, 0.7, 0.64, 0.58, 0.56, 0.58, 0.62, 0.74, 0.74, 0.7, 0.62],
     YS: [0.0045, 0.005, 0.0065, 0.011, 0.014, 0.015, 0.014, 0.01, 0.0075, 0.0055, 0.005, 0.0045],
     WF: 0.68, WX: 0.96, WR: 0.33, axF: 1.3, axR: -1.2,
     EA: 3.7e5, mass: 1000, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.85,
     rideF: 1.6, rideR: 1.8, travelUp: 0.09, travelDown: 0.11,
     torque: 175, final: 3.5, drive: 'rwd', grip: 1.3, drag: 0.014, brake: 4200, bed: false,
+    look: { bumper: 'paint', grille: 'paint', lamp: 'slim', face: 'mouth', color: 'teal' },
   },
 };
 
@@ -201,37 +204,42 @@ export const VEHICLES = {
   const S = VEHICLES.sedan, P = VEHICLES.pickup, mk = (o) => Object.assign({}, S, o), sc = (a, k) => a.map((v) => v * k), add = (a, k) => a.map((v) => v + k);
   VEHICLES.hatch = mk({
     name: 'Hatchback', tyreW: 0.21, rim: 0.7, blurb: 'Small, front-wheel drive, agile',
-    Z: sc(S.Z, 0.82), YB: add(S.YB, -0.02), YR: [1.02, 1.18, 1.32, 1.4, 1.44, 1.46, 1.45, 1.38, 0.98, 0.95, 0.92, 0.8], WB: sc(S.WB, 0.96), WT: sc(S.WT, 1.03),
+    Z: sc(S.Z, 0.82), YB: add(S.YB, -0.02), YR: [1.24, 1.34, 1.4, 1.43, 1.45, 1.46, 1.45, 1.38, 0.98, 0.95, 0.92, 0.82], WB: sc(S.WB, 0.96), WT: sc(S.WT, 1.03),
     WF: 0.72, WX: 1.0, WR: 0.32, axF: 1.19, axR: -1.11, EA: 3.8e5, mass: 1050, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.9,
     rideF: 1.45, rideR: 1.65, torque: 160, final: 4.1, drive: 'fwd', grip: 1.25, drag: 0.016, brake: 4200,
+    look: { bumper: 'paint', grille: 'paint', lamp: 'slim', face: 'intake', color: 'blue' },
   });
   VEHICLES.suv = mk({
     name: 'SUV', tyreW: 0.29, rim: 0.58, blurb: 'Tall, tough, all-wheel drive',
-    Z: sc(S.Z, 1.02), YF: add(S.YF, 0.14), YB: add(S.YB, 0.2), YR: [1.5, 1.72, 1.8, 1.82, 1.84, 1.84, 1.82, 1.7, 1.12, 1.08, 1.02, 0.9],
+    Z: sc(S.Z, 1.02), YF: add(S.YF, 0.14), YB: add(S.YB, 0.2), YR: [1.62, 1.76, 1.8, 1.82, 1.84, 1.84, 1.82, 1.7, 1.16, 1.1, 1.04, 0.92],
     WB: sc(S.WB, 1.05), WT: [0.9, 0.92, 0.94, 0.92, 0.9, 0.9, 0.9, 0.9, 0.92, 0.92, 0.9, 0.84], YS: P.YS,
     WF: 0.8, WX: 1.08, WR: 0.4, axF: 1.5, axR: -1.4, EA: 6.0e5, mass: 1950, mEng: 220, mFuel: 70, mWheel: 48, pm: 1.3,
     rideF: 1.25, rideR: 1.2, travelUp: 0.14, travelDown: 0.18, torque: 300, final: 4.0, drive: 'awd', grip: 1.1, drag: 0.03, brake: 6000,
+    look: { bumper: 'dark', grille: 'dark', lamp: 'slim', face: 'slots', color: 'white' },
   });
   VEHICLES.muscle = mk({
     name: 'Muscle', tyreW: 0.32, rim: 0.64, blurb: 'Long hood, huge torque, rear-wheel drive',
     Z: [-2.4, -2.2, -1.8, -1.4, -1.0, -0.6, -0.2, 0.2, 0.65, 1.2, 1.85, 2.55],
-    YB: [0.74, 0.8, 0.82, 0.84, 0.86, 0.86, 0.86, 0.86, 0.84, 0.82, 0.8, 0.7], YR: [0.9, 0.98, 1.0, 1.1, 1.36, 1.4, 1.38, 1.3, 0.98, 0.95, 0.92, 0.84],
+    YB: [0.74, 0.8, 0.82, 0.84, 0.86, 0.86, 0.86, 0.86, 0.84, 0.82, 0.8, 0.7], YR: [0.88, 0.96, 1.04, 1.16, 1.34, 1.38, 1.36, 1.28, 0.96, 0.93, 0.9, 0.84],
     WX: 1.02, axF: 1.55, axR: -1.5, EA: 4.5e5, mass: 1600, mEng: 230, mFuel: 55, mWheel: 40, pm: 1.05,
     torque: 420, final: 3.7, drive: 'rwd', grip: 1.05, drag: 0.024, brake: 4800,
+    look: { bumper: 'chrome', grille: 'dark', lamp: 'round', face: 'bars', stripes: ['hood', 'trunk'], color: 'blue' },
   });
   VEHICLES.van = mk({
     name: 'Van', tyreW: 0.27, rim: 0.55, blurb: 'Big box, slow, lots to break',
     Z: [-2.6, -2.35, -1.9, -1.4, -0.9, -0.4, 0.1, 0.55, 0.95, 1.35, 1.9, 2.4],
-    YF: P.YF, YB: [1.1, 1.15, 1.15, 1.15, 1.15, 1.15, 1.15, 1.1, 1.0, 0.95, 0.9, 0.85], YR: [2.1, 2.15, 2.15, 2.15, 2.15, 2.15, 2.1, 2.0, 1.3, 1.25, 1.2, 1.1],
+    YF: P.YF, YB: [1.1, 1.15, 1.15, 1.15, 1.15, 1.15, 1.15, 1.1, 1.0, 0.95, 0.9, 0.85], YR: [2.1, 2.15, 2.15, 2.15, 2.15, 2.15, 2.1, 2.0, 1.42, 1.34, 1.24, 1.12],
     WB: sc(P.WB, 0.99), WT: [0.93, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.9, 0.9, 0.88, 0.84], YS: P.YS,
     WF: 0.85, WX: 1.1, WR: 0.4, axF: 1.6, axR: -1.7, EA: 6.5e5, mass: 2300, mEng: 200, mFuel: 75, mWheel: 50, pm: 1.5,
     rideF: 1.15, rideR: 1.0, travelUp: 0.14, travelDown: 0.18, torque: 290, final: 4.3, drive: 'rwd', grip: 1.05, drag: 0.04, brake: 6200,
+    look: { bumper: 'dark', grille: 'paint', lamp: 'slim', face: 'bars', color: 'white' },
   });
   VEHICLES.mini = mk({
     name: 'Mini', tyreW: 0.18, rim: 0.62, blurb: 'Tiny and fragile, front-wheel drive',
-    Z: sc(S.Z, 0.72), YB: add(S.YB, -0.05), YR: [1.02, 1.12, 1.2, 1.26, 1.3, 1.32, 1.3, 1.25, 0.94, 0.9, 0.86, 0.76], WB: sc(S.WB, 0.97), WT: sc(S.WT, 0.95),
+    Z: sc(S.Z, 0.72), YB: add(S.YB, -0.05), YR: [1.06, 1.14, 1.2, 1.26, 1.3, 1.32, 1.3, 1.26, 0.98, 0.95, 0.92, 0.84], WB: sc(S.WB, 0.97), WT: [0.74, 0.78, 0.8, 0.78, 0.76, 0.76, 0.76, 0.78, 0.8, 0.8, 0.78, 0.72],
     WF: 0.68, WX: 0.94, WR: 0.28, axF: 1.04, axR: -0.97, EA: 2.8e5, mass: 750, mEng: 80, mFuel: 30, mWheel: 22, pm: 0.7,
     rideF: 1.5, rideR: 1.7, travelUp: 0.09, travelDown: 0.11, torque: 105, final: 4.3, drive: 'fwd', grip: 1.2, drag: 0.012, brake: 3600,
+    look: { bumper: 'paint', grille: 'dark', lamp: 'round', face: 'mini', roof: [0.93, 0.93, 0.95], stripes: ['hood'], color: 'red' },
   });
   for (const d of Object.values(VEHICLES)) d.WX = Math.max(...d.WB) - 0.14;   // tyres sit under the bodywork
 }
@@ -324,7 +332,7 @@ export class Car {
     }
     addPanel('hood', 3, 4, (r, c) => topAt(8 + c, r / 2, 0.03 + ((c === 1 || c === 2) ? 0.04 : 0)), { mass: 13 * pm, att: (r, c) => (c === 0 ? 1.0 : c === 3 ? 0.65 : r !== 1 ? 0.3 : 0), yld: 0.012, hinge: (r, c) => c === 0, latch: (r, c) => c === 3, lift: true });
     if (!d.bed) addPanel('trunk', 3, 3, (r, c) => topAt(c * 1.25, r / 2, 0.03 + (c === 1 ? 0.04 : 0)), { mass: 9 * pm, att: (r, c) => (c === 2 ? 1.0 : c === 0 ? 0.65 : r !== 1 ? 0.3 : 0), yld: 0.012, hinge: (r, c) => c === 2, latch: (r, c) => c === 0, lift: true });
-    addPanel('roof', 3, 4, (r, c) => topAt(4 + c, r / 2, 0.03), { mass: 9 * pm, att: corners(3, 4, 0.9), yld: 0.012 });
+    addPanel('roof', 3, 4, (r, c) => topAt(4 + c, r / 2, 0.03), { mass: 9 * pm, att: corners(3, 4, 0.9), yld: 0.012, col: d.look.roof ? 'accent' : undefined });
     addPanel('windshield', 3, 3, (r, c) => topAt(7 + c * 0.5, r / 2, 0.02), { mass: 9 * pm, att: rim(3, 3, 0.5), yld: 0.5, glass: true });
     const rg0 = d.bed ? 3 : 2.5;
     addPanel('rearGlass', 3, 3, (r, c) => topAt(rg0 + c * (4 - rg0) / 2, r / 2, 0.02), { mass: 7 * pm, att: rim(3, 3, 0.5), yld: 0.5, glass: true });
@@ -333,8 +341,8 @@ export class Car {
       const bb = Math.min(YF[end] - 0.07, 0.4);
       return [x, bb + (r === 0 ? 0 : 0.22), Z[end] + dir * (0.07 - 0.2 * u * u)];
     };
-    addPanel('bumperR', 2, 5, bumper(0, -1), { mass: 11 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 2, col: 'chrome' });
-    addPanel('bumperF', 2, 5, bumper(11, 1), { mass: 12 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 9, col: 'chrome' });
+    addPanel('bumperR', 2, 5, bumper(0, -1), { mass: 11 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 2, col: d.look.bumper });
+    addPanel('bumperF', 2, 5, bumper(11, 1), { mass: 12 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 9, col: d.look.bumper });
 
     const fascia = (end, dir) => (r, c) => {
       const y = lerp(Math.min(YF[end] + 0.12, 0.58), Math.max(YR[end] - 0.07, YF[end] + 0.5), r);
@@ -342,7 +350,7 @@ export class Car {
       const hw = WB[end] + (WT[end] - WB[end]) * t - 0.01;             // follow the body outline: narrower above the beltline
       return [(c / 4 * 2 - 1) * hw, y, Z[end] + dir * 0.04];
     };
-    addPanel('grille', 2, 5, fascia(11, 1), { mass: 4 * pm, att: rim(2, 5, 0.6), yld: 0.02, anchorSt: 10 });
+    addPanel('grille', 2, 5, fascia(11, 1), { mass: 4 * pm, att: rim(2, 5, 0.6), yld: 0.02, anchorSt: 10, col: d.look.grille === 'dark' ? 'dark' : undefined });
     addPanel('tailPanel', 2, 5, fascia(0, -1), { mass: 4 * pm, att: rim(2, 5, 0.6), yld: 0.02, anchorSt: 1 });
     addPanel('underbody', 3, 5, (r, c) => { const { p, z } = rp(2 + c * 2), a = p[5], b = p[0]; return [lerp(a[0], b[0], r / 2), lerp(a[1], b[1], r / 2) - 0.04, z]; }, { mass: 6 * pm, att: (r, c) => ((r === 0 || r === 2) && (c === 0 || c === 4 || c === 2)) ? 0.7 : 0, yld: 0.02, col: 'dark' });
 

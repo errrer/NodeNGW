@@ -3,7 +3,8 @@ import { Car, VEHICLES, OBSTACLES, TREES, BALLS, RAMPS, terrainHeight, onRamp, r
 import { Particles, Skids } from './fx.js';
 
 // ------------------------------------------------------------ settings
-const COLORS = [[0.72, 0.07, 0.1], [0.1, 0.3, 0.85], [0.95, 0.75, 0.1], [0.1, 0.6, 0.3], [0.9, 0.9, 0.92], [0.07, 0.07, 0.09], [0.95, 0.4, 0.05]];
+const COLORS = [[0.72, 0.07, 0.1], [0.1, 0.3, 0.85], [0.95, 0.75, 0.1], [0.1, 0.6, 0.3], [0.9, 0.9, 0.92], [0.07, 0.07, 0.09], [0.95, 0.4, 0.05], [0.62, 0.64, 0.68], [0.04, 0.5, 0.42]];
+const COLOR_NAMES = ['red', 'blue', 'yellow', 'green', 'white', 'black', 'orange', 'silver', 'teal'];
 const store = {
   get(k, d) { try { const v = localStorage.getItem('nodengw.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('nodengw.' + k, JSON.stringify(v)); } catch (e) { /* ignore */ } },
@@ -174,7 +175,7 @@ const skids = new Skids(scene);
 
 // ------------------------------------------------------------ car visuals
 let car, body, bodyGeo, bodyMat, nodeKind, baseCol, wheelGroups = [], lines, lineGeo;
-let details = [], faceRecs = [], bodyIdxAttr, glassIdxAttr, lastBroken = -1;
+let ribbons = [], details = [], faceRecs = [], bodyIdxAttr, glassIdxAttr, lastBroken = -1;
 let engineMesh, engineNodes = [], glassMesh, tintMesh, glassGeo, glassPanels = [], frameMesh, frameBeams = [], interior = [];
 let headMeshes = [], tailMeshes = [], headLights = [];
 const GLASS = [0.08, 0.13, 0.18], DARK = [0.06, 0.06, 0.07], PRIMER = [0.14, 0.13, 0.13], CHROME = [0.62, 0.64, 0.67];
@@ -234,8 +235,8 @@ function buildCar(key) {
   const bodyIdx = [], glassIdxArr = [];
   for (const f of car.faces) {
     const [a, b, c, d] = f.q;
-    const col = f.col === 'paint' ? paint : f.col === 'glass' ? GLASS : f.col === 'chrome' ? CHROME : DARK;
-    for (const n of f.q) { baseCol.set(col, n * 3); nodeKind[n] = f.col === 'paint' ? 0 : f.col === 'glass' ? 1 : 2; }
+    const col = f.col === 'paint' ? paint : f.col === 'accent' ? (car.def.look.roof || paint) : f.col === 'glass' ? GLASS : f.col === 'chrome' ? CHROME : DARK;
+    for (const n of f.q) { baseCol.set(col, n * 3); nodeKind[n] = (f.col === 'paint' || f.col === 'accent') ? 0 : f.col === 'glass' ? 1 : 2; }
     (f.col === 'glass' ? glassIdxArr : bodyIdx).push(a, b, c, a, c, d);
   }
   bodyGeo = new THREE.BufferGeometry();
@@ -350,15 +351,60 @@ function buildCar(key) {
     const bxm = (w, h, l, mat) => new THREE.Mesh(new THREE.BoxGeometry(w, h, l), mat);
     const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff2c8 }), plateMat = new THREE.MeshStandardMaterial({ color: 0xf2f2f0, roughness: 0.6 });
     const chromeMat = new THREE.MeshStandardMaterial({ color: 0xc8ccd0, metalness: 0.9, roughness: 0.25 }), paintMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(...paint), roughness: 0.38, metalness: 0.4 });
-    const lw = 0.17 + car.def.WB[11] * 0.1;
-    addDet('grille', 1, 0, [0.3, -0.05, 0.03], bxm(0.2, 0.09, 0.05, lampMat)); addDet('grille', 1, 4, [-0.3, -0.05, 0.03], bxm(0.2, 0.09, 0.05, lampMat));
+    const look = car.def.look || {}, W = car.def.WT[11], tall = car.def.YR[11] - car.def.YF[11] > 0.8;
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x0e0f11, roughness: 0.55 });
+    const cyl = (r, l, mat) => new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 20).rotateX(Math.PI / 2), mat);
+    const ring = (r, t, mat) => new THREE.Mesh(new THREE.TorusGeometry(r, t, 8, 24), mat);
+    for (const sg of [1, -1]) {                         // headlamps
+      const c = sg > 0 ? 0 : 4;
+      if (look.lamp === 'round') {
+        const mini = look.face === 'mini', R = mini ? 0.14 : 0.115, ox = mini ? 0.2 : 0.2, oy = mini ? -0.15 : -0.14;
+        addDet('grille', 1, c, [sg * ox, oy, 0.035], cyl(R, 0.05, lampMat)); addDet('grille', 1, c, [sg * ox, oy, 0.055], ring(R, 0.022, chromeMat));
+      } else {
+        const h = tall ? 0.11 : 0.07;
+        addDet('grille', 1, c, [sg * 0.27, -0.06, 0.03], bxm(0.34, h, 0.05, lampMat));
+      }
+    }
     addDet('tailPanel', 1, 0, [0.2, -0.08, -0.03], bxm(0.3, 0.12, 0.05, tailMeshes[1].material)); addDet('tailPanel', 1, 4, [-0.2, -0.08, -0.03], bxm(0.3, 0.12, 0.05, tailMeshes[0].material));
     addDet('grille', 0, 2, [0, 0.1, 0.045], bxm(0.5, 0.12, 0.012, plateMat)); addDet('tailPanel', 0, 2, [0, 0.1, -0.045], bxm(0.5, 0.12, 0.012, plateMat));
-    for (const k of [1, 2, 3]) addDet('grille', 1, k, [0, -0.2, 0.03], bxm(0.24, 0.03, 0.03, chromeMat));
+    {   // grille / face details per car
+      const G = (r, c, off, mesh) => addDet('grille', r, c, off, mesh);
+      const face = look.face;
+      if (face === 'intake') {                         // slim upper grille, big black lower intake, badge
+        G(1, 2, [0, -0.07, 0.03], bxm(W * 0.9, 0.05, 0.03, darkMat)); G(1, 2, [0, -0.07, 0.045], bxm(0.04, 0.04, 0.03, chromeMat)); G(1, 2, [0, -0.24, 0.03], bxm(W * 1.0, 0.1, 0.03, darkMat));
+      } else if (face === 'mouth') {                   // wide sports-car mouth
+        G(1, 2, [0, -0.2, 0.03], bxm(W * 1.2, 0.17, 0.03, darkMat));
+        for (const y of [-0.16, -0.2, -0.24]) G(1, 2, [0, y, 0.045], bxm(W * 1.15, 0.012, 0.02, chromeMat));
+      } else if (face === 'bars') {
+        const n = tall ? 4 : 3, gap = tall ? 0.14 : 0.07, y0 = tall ? -0.12 : -0.08;
+        for (let k = 0; k < n; k++) G(1, 2, [0, y0 - k * gap, 0.035], bxm(W * (tall ? 1.4 : 1.05), tall ? 0.07 : 0.025, 0.03, chromeMat));
+        if (tall) G(1, 2, [0, y0 - gap * 1.5, 0.06], bxm(0.2, 0.07, 0.03, chromeMat));
+      } else if (face === 'slots') {                   // seven vertical slots
+        for (let k = -3; k <= 3; k++) G(1, 2, [k * W * 0.2, -0.22, 0.035], bxm(0.035, 0.24, 0.03, chromeMat));
+        G(1, 2, [0, -0.08, 0.035], bxm(W * 1.3, 0.03, 0.03, chromeMat));
+      } else if (face === 'mini') {                    // chrome-framed grille
+        G(1, 2, [0, -0.08, 0.035], bxm(W * 0.9, 0.03, 0.03, chromeMat)); G(1, 2, [0, -0.3, 0.035], bxm(W * 0.9, 0.03, 0.03, chromeMat));
+        for (const sg of [-1, 1]) G(1, 2, [sg * W * 0.45, -0.19, 0.035], bxm(0.03, 0.25, 0.03, chromeMat));
+      }
+    }
     for (const sd of ['L', 'R']) {
       const sg = sd === 'L' ? 1 : -1;
       addDet('door' + sd, 2, 4, [sg * 0.1, 0.1, 0.05], bxm(0.1, 0.1, 0.2, paintMat));
       addDet('door' + sd, 2, 1, [sg * 0.03, -0.05, 0], bxm(0.025, 0.03, 0.14, chromeMat));
+    }
+  }
+
+  for (const r of ribbons) scene.remove(r.mesh);
+  ribbons = [];
+  for (const pname of (car.def.look && car.def.look.stripes) || []) {   // racing stripes that follow the panel as it deforms
+    const p = car.panels.find((q) => q.name === pname); if (!p) continue;
+    for (const t of [0.4, 0.6]) {
+      const geo = new THREE.BufferGeometry(), np = p.cols * 2, idx = [];
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(np * 3), 3));
+      for (let c = 0; c + 1 < p.cols; c++) idx.push(c * 2, c * 2 + 1, c * 2 + 3, c * 2, c * 2 + 3, c * 2 + 2);
+      geo.setIndex(idx);
+      const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xf4f4f6, roughness: 0.4, metalness: 0.2, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      mesh.frustumCulled = false; scene.add(mesh); ribbons.push({ p, u0: t - 0.045, u1: t + 0.045, mesh });
     }
   }
 
@@ -444,6 +490,18 @@ function updateVisuals() {
       dd.mesh.visible = !(x === 0 && y === 0 && z === 0);
       dd.mesh.position.set(x, y, z).addScaledVector(L, dd.off[0]).addScaledVector(U, dd.off[1]).addScaledVector(F, dd.off[2]);
       dd.mesh.quaternion.copy(_qa);
+    }
+    for (const r of ribbons) {
+      const p = r.p, n0 = p.nodes[0], pos = r.mesh.geometry.attributes.position, vis = !p.gone && !(car.rx[n0] === 0 && car.ry[n0] === 0 && car.rz[n0] === 0);
+      r.mesh.visible = vis; if (!vis) continue;
+      for (let c = 0; c < p.cols; c++) {
+        for (let e = 0; e < 2; e++) {
+          const rr = (e ? r.u1 : r.u0) * (p.rows - 1), r0 = Math.min(Math.floor(rr), p.rows - 2), f = rr - r0;
+          const a = p.nodes[r0 * p.cols + c], b = p.nodes[(r0 + 1) * p.cols + c];
+          pos.setXYZ(c * 2 + e, car.rx[a] + (car.rx[b] - car.rx[a]) * f + U.x * 0.012, car.ry[a] + (car.ry[b] - car.ry[a]) * f + U.y * 0.012, car.rz[a] + (car.rz[b] - car.rz[a]) * f + U.z * 0.012);
+        }
+      }
+      pos.needsUpdate = true; r.mesh.geometry.computeVertexNormals();
     }
   }
   // interior / engine follow the shell
@@ -834,13 +892,13 @@ function buildMenu() {
   for (const k of Object.keys(VEHICLES)) {
     const b = document.createElement('button'); b.className = 'card' + (settings.vehicle === k ? ' sel' : '');
     b.innerHTML = '<b>' + VEHICLES[k].name + '</b><small>' + VEHICLES[k].blurb + '</small>';
-    b.onclick = () => { settings.vehicle = k; buildMenu(); }; vh.appendChild(b);
+    b.onclick = () => { settings.vehicle = k; if (!store.get('colorTouched', false)) { const ci = COLOR_NAMES.indexOf(VEHICLES[k].look && VEHICLES[k].look.color); if (ci >= 0) settings.color = ci; } buildMenu(); }; vh.appendChild(b);
   }
   const ch = el('colors'); ch.innerHTML = '';
   COLORS.forEach((c, i) => {
     const b = document.createElement('button'); b.className = 'sw' + (settings.color === i ? ' sel' : '');
     b.style.background = 'rgb(' + c.map((v) => Math.round(v * 255)).join(',') + ')';
-    b.onclick = () => { settings.color = i; buildMenu(); }; ch.appendChild(b);
+    b.onclick = () => { settings.color = i; store.set('colorTouched', true); buildMenu(); }; ch.appendChild(b);
   });
   const qh = el('quality'); qh.innerHTML = '';
   for (const k of ['low', 'med', 'high']) {

@@ -163,7 +163,7 @@ export const VEHICLES = {
     YS: [0.005, 0.0055, 0.007, 0.012, 0.015, 0.016, 0.015, 0.011, 0.008, 0.006, 0.0055, 0.005],
     WF: 0.72, WX: 1.0, WR: 0.35, axF: 1.45, axR: -1.35,
     EA: 4.0e5, mass: 1150, mEng: 140, mFuel: 45, mWheel: 35, pm: 1,
-    look: { bumper: 'paint', grille: 'paint', lamp: 'slim', face: 'intake', color: 'silver' },
+    look: { bumper: 'paint', grille: 'paint', lamp: 'slim', face: 'intake', color: 'silver', doors: 4, trim: 'chrome', rearKind: 'sedan', sill: 'chrome', beltLine: 'rgba(255,255,255,0.18)' },
     rideF: 1.3, rideR: 1.5, travelUp: 0.11, travelDown: 0.13,
     torque: 190, final: 3.9, drive: 'rwd', grip: 1.15, drag: 0.02, brake: 4500, bed: false,
   },
@@ -180,7 +180,7 @@ export const VEHICLES = {
     EA: 6.9e5, mass: 2100, mEng: 250, mFuel: 80, mWheel: 55, pm: 1.4,
     rideF: 1.2, rideR: 1.05, travelUp: 0.14, travelDown: 0.18,
     torque: 330, final: 4.2, drive: 'awd', grip: 1.1, drag: 0.03, brake: 6500, bed: true,
-    look: { bumper: 'dark', grille: 'dark', lamp: 'slim', face: 'bars', color: 'green' },
+    look: { bumper: 'dark', grille: 'dark', lamp: 'slim', face: 'bars', color: 'green', doors: 4, rearKind: 'truck', rearOnTail: true, winRear: [4.05, 3.9], doorRear: 4.05, sill: 'dark', flare: 0.07, arch: 0.11, markers: false },
   },
   coupe: {
     name: 'Coupe', tyreW: 0.26, rim: 0.72, blurb: 'Light, grippy and fast',
@@ -195,7 +195,7 @@ export const VEHICLES = {
     EA: 3.7e5, mass: 1000, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.85,
     rideF: 1.6, rideR: 1.8, travelUp: 0.09, travelDown: 0.11,
     torque: 175, final: 3.5, drive: 'rwd', grip: 1.3, drag: 0.014, brake: 4200, bed: false,
-    look: { bumper: 'paint', grille: 'paint', lamp: 'slim', face: 'mouth', color: 'teal' },
+    look: { bumper: 'paint', grille: 'paint', lamp: 'slim', face: 'mouth', color: 'teal', doors: 2, rearKind: 'sedan', exhaust: true, sideVent: true, sill: 'dark', hoodVents: true, doorRear: 5.0, flare: 0.03, arch: 0.05 },
   },
 };
 
@@ -207,7 +207,7 @@ export const VEHICLES = {
     Z: sc(S.Z, 0.82), YB: add(S.YB, -0.02), YR: [1.24, 1.34, 1.4, 1.43, 1.45, 1.46, 1.45, 1.38, 0.98, 0.95, 0.92, 0.82], WB: sc(S.WB, 0.96), WT: sc(S.WT, 1.03),
     WF: 0.72, WX: 1.0, WR: 0.32, axF: 1.19, axR: -1.11, EA: 3.8e5, mass: 1050, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.9,
     rideF: 1.45, rideR: 1.65, torque: 160, final: 4.1, drive: 'fwd', grip: 1.25, drag: 0.016, brake: 4200,
-    look: { bumper: 'paint', grille: 'paint', lamp: 'slim', face: 'intake', color: 'blue' },
+    look: { bumper: 'paint', grille: 'paint', lamp: 'slim', face: 'intake', color: 'blue', doors: 4, rearKind: 'hatch', rearOnTail: true, winRear: [1.5, 1.2], sill: 'dark' },
   });
   VEHICLES.suv = mk({
     name: 'SUV', tyreW: 0.29, rim: 0.58, blurb: 'Tall, tough, all-wheel drive',
@@ -215,7 +215,7 @@ export const VEHICLES = {
     WB: sc(S.WB, 1.05), WT: [0.9, 0.92, 0.94, 0.92, 0.9, 0.9, 0.9, 0.9, 0.92, 0.92, 0.9, 0.84], YS: P.YS,
     WF: 0.8, WX: 1.08, WR: 0.4, axF: 1.5, axR: -1.4, EA: 6.0e5, mass: 1950, mEng: 220, mFuel: 70, mWheel: 48, pm: 1.3,
     rideF: 1.25, rideR: 1.2, travelUp: 0.14, travelDown: 0.18, torque: 300, final: 4.0, drive: 'awd', grip: 1.1, drag: 0.03, brake: 6000,
-    look: { bumper: 'dark', grille: 'dark', lamp: 'slim', face: 'slots', color: 'white' },
+    look: { bumper: 'dark', grille: 'dark', lamp: 'slim', face: 'slots', color: 'white', doors: 4, rearKind: 'wagon', rearOnTail: true, winRear: [1.5, 1.2], lowerBand: [0.3, 0.62], lowerCol: '#1d2024', flare: 0.07, arch: 0.1, sill: 'dark' },
   });
   VEHICLES.muscle = mk({
     name: 'Muscle', tyreW: 0.32, rim: 0.64, blurb: 'Long hood, huge torque, rear-wheel drive',
@@ -223,7 +223,7 @@ export const VEHICLES = {
     YB: [0.74, 0.8, 0.82, 0.84, 0.86, 0.86, 0.86, 0.86, 0.84, 0.82, 0.8, 0.7], YR: [0.88, 0.96, 1.04, 1.16, 1.34, 1.38, 1.36, 1.28, 0.96, 0.93, 0.9, 0.84],
     WX: 1.02, axF: 1.55, axR: -1.5, EA: 4.5e5, mass: 1600, mEng: 230, mFuel: 55, mWheel: 40, pm: 1.05,
     torque: 420, final: 3.7, drive: 'rwd', grip: 1.05, drag: 0.024, brake: 4800,
-    look: { bumper: 'chrome', grille: 'dark', lamp: 'round', face: 'bars', stripes: ['hood', 'trunk'], color: 'blue' },
+    look: { bumper: 'chrome', grille: 'dark', lamp: 'round', face: 'bars', color: 'blue', doors: 2, trim: 'chrome', rearKind: 'sedan', exhaust: true, scoop: true, sill: 'chrome', doorRear: 4.9, stripeSt: [[8.15, 11.2], [0.1, 2.5]], stripeX: 0.16, stripeCol: '#f1f2f4', flare: 0.025, arch: 0.07 },
   });
   VEHICLES.van = mk({
     name: 'Van', tyreW: 0.27, rim: 0.55, blurb: 'Big box, slow, lots to break',
@@ -232,14 +232,14 @@ export const VEHICLES = {
     WB: sc(P.WB, 0.99), WT: [0.93, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.9, 0.9, 0.88, 0.84], YS: P.YS,
     WF: 0.85, WX: 1.1, WR: 0.4, axF: 1.6, axR: -1.7, EA: 6.5e5, mass: 2300, mEng: 200, mFuel: 75, mWheel: 50, pm: 1.5,
     rideF: 1.15, rideR: 1.0, travelUp: 0.14, travelDown: 0.18, torque: 290, final: 4.3, drive: 'rwd', grip: 1.05, drag: 0.04, brake: 6200,
-    look: { bumper: 'dark', grille: 'paint', lamp: 'slim', face: 'bars', color: 'white' },
+    look: { bumper: 'dark', grille: 'paint', lamp: 'slim', face: 'bars', color: 'white', doors: 2, noSideGlass: true, frontWinOnly: true, rearKind: 'van', rearOnTail: true, lowerBand: [0.4, 0.82], lowerCol: '#3c4046', doorRear: 6.2, flare: 0.05, arch: 0.08, markers: false },
   });
   VEHICLES.mini = mk({
     name: 'Mini', tyreW: 0.18, rim: 0.62, blurb: 'Tiny and fragile, front-wheel drive',
     Z: sc(S.Z, 0.72), YB: add(S.YB, -0.05), YR: [1.06, 1.14, 1.2, 1.26, 1.3, 1.32, 1.3, 1.26, 0.98, 0.95, 0.92, 0.84], WB: sc(S.WB, 0.97), WT: [0.74, 0.78, 0.8, 0.78, 0.76, 0.76, 0.76, 0.78, 0.8, 0.8, 0.78, 0.72],
     WF: 0.68, WX: 0.94, WR: 0.28, axF: 1.04, axR: -0.97, EA: 2.8e5, mass: 750, mEng: 80, mFuel: 30, mWheel: 22, pm: 0.7,
     rideF: 1.5, rideR: 1.7, travelUp: 0.09, travelDown: 0.11, torque: 105, final: 4.3, drive: 'fwd', grip: 1.2, drag: 0.012, brake: 3600,
-    look: { bumper: 'paint', grille: 'dark', lamp: 'round', face: 'mini', roof: [0.93, 0.93, 0.95], stripes: ['hood'], color: 'red' },
+    look: { bumper: 'paint', grille: 'dark', lamp: 'round', face: 'mini', color: 'red', doors: 2, rearKind: 'hatch', rearOnTail: true, winRear: [4.0, 3.2], roofCol: '#eeeef1', stripeSt: [[8.2, 11.2]], stripeX: 0.1, stripeCol: '#eeeef1', doorRear: 4.4, flare: 0.05, arch: 0.07 },
   });
   for (const d of Object.values(VEHICLES)) d.WX = Math.max(...d.WB) - 0.14;   // tyres sit under the bodywork
 }

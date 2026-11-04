@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Car, VEHICLES, OBSTACLES, TREES, BALLS, RAMPS, terrainHeight, onRamp, resetBalls, WATER, WORLD_HALF, st as stn, ENG, CORE as CORE_N, FUEL as FUEL_N } from './physics.js';
 import { Particles, Skids } from './fx.js';
+import { Shell } from './shell.js';
 
 // ------------------------------------------------------------ settings
 const COLORS = [[0.72, 0.07, 0.1], [0.1, 0.3, 0.85], [0.95, 0.75, 0.1], [0.1, 0.6, 0.3], [0.9, 0.9, 0.92], [0.07, 0.07, 0.09], [0.95, 0.4, 0.05], [0.62, 0.64, 0.68], [0.04, 0.5, 0.42]];
@@ -175,7 +176,7 @@ const skids = new Skids(scene);
 
 // ------------------------------------------------------------ car visuals
 let car, body, bodyGeo, bodyMat, nodeKind, baseCol, wheelGroups = [], lines, lineGeo;
-let ribbons = [], details = [], faceRecs = [], bodyIdxAttr, glassIdxAttr, lastBroken = -1;
+let shell = null, ribbons = [], details = [], faceRecs = [], bodyIdxAttr, glassIdxAttr, lastBroken = -1;
 let engineMesh, engineNodes = [], glassMesh, tintMesh, glassGeo, glassPanels = [], frameMesh, frameBeams = [], interior = [];
 let headMeshes = [], tailMeshes = [], headLights = [];
 const GLASS = [0.08, 0.13, 0.18], DARK = [0.06, 0.06, 0.07], PRIMER = [0.14, 0.13, 0.13], CHROME = [0.62, 0.64, 0.67];
@@ -189,6 +190,7 @@ function disposeCar() {
   scene.remove(engineMesh); engineMesh.geometry.dispose();
   for (const it of interior) scene.remove(it.mesh);
   for (const dd of details) scene.remove(dd.mesh);
+  if (shell) { shell.dispose(); shell = null; }
   for (const m of debrisMeshes) scene.remove(m);
   for (const g of wheelGroups) scene.remove(g);
   scene.remove(lines); lineGeo.dispose();
@@ -319,7 +321,7 @@ function buildCar(key) {
     scene.add(engineMesh);
   }
   addIt(bx(0.7, 0.2, 0.45, 0x2c2f31, 0.2), 0, 0, 0, 0, FUEL_N);
-  addIt(bx(1.1, 0.45, 0.07, 0x1d1d20), 0, (d.YF[10] + d.YB[10]) / 2, Zs[10] + 0.4);
+  addIt(bx(0.9, 0.38, 0.07, 0x1d1d20), 0, (d.YF[9] + d.YB[9]) / 2, Math.min(Zs[10] + 0.4, Zs[11] - 0.3));   // radiator, kept inside the nose
   addIt(bx(0.4, 0.14, 1.6, 0x4a4d50, 0.5), 0, d.YF[4] - 0.02, (Zs[3] + Zs[5]) / 2);
 
   const WR = car.WR;
@@ -389,7 +391,7 @@ function buildCar(key) {
     }
     for (const sd of ['L', 'R']) {
       const sg = sd === 'L' ? 1 : -1;
-      addDet('door' + sd, 2, 4, [sg * 0.1, 0.1, 0.05], bxm(0.1, 0.1, 0.2, paintMat));
+      addDet('door' + sd, 2, 4, [sg * 0.1, 0.1, 0.05], bxm(0.1, 0.1, 0.2, paintMat)); if (details.length) details[details.length - 1].keep = true;
       addDet('door' + sd, 2, 1, [sg * 0.03, -0.05, 0], bxm(0.025, 0.03, 0.14, chromeMat));
     }
   }
@@ -407,6 +409,13 @@ function buildCar(key) {
       mesh.frustumCulled = false; scene.add(mesh); ribbons.push({ p, u0: t - 0.045, u1: t + 0.045, mesh });
     }
   }
+
+  // the smooth textured shell replaces the blocky panel mesh; only the door mirrors stay as separate parts
+  shell = new Shell(car, paint, crackTexture(), scene);
+  body.visible = false; tintMesh.visible = false; glassMesh.visible = false;
+  details = details.filter((dd) => { if (dd.keep) return true; scene.remove(dd.mesh); return false; });
+  for (const r of ribbons) scene.remove(r.mesh);
+  ribbons = [];
 
   headLights = [0, 1].map(() => {
     const l = new THREE.SpotLight(0xfff2d0, 0, 70, 0.55, 0.5, 1.2); scene.add(l); scene.add(l.target); return l;
@@ -432,6 +441,7 @@ function updateDebrisMeshes() {
 }
 function updateVisuals() {
   car.syncRender();
+  if (shell) { shell.update(car, car.updateNodeDamage(), showBeams); shell.setLights((nightMode || lightsOn) ? 1 : 0, car.braking > 0.1 ? 1 : 0); }
   const bp = bodyGeo.attributes.position.array, NN = car.NN;
   for (let n = 0; n < NN; n++) { bp[n * 3] = car.rx[n]; bp[n * 3 + 1] = car.ry[n]; bp[n * 3 + 2] = car.rz[n]; }
   bodyGeo.attributes.position.needsUpdate = true;
@@ -471,7 +481,7 @@ function updateVisuals() {
 
   // steel frame
   frameBeams.forEach((f, i) => {
-    if (car.broken[f.q]) { _d.scale.set(0, 0, 0); _d.updateMatrix(); frameMesh.setMatrixAt(i, _d.matrix); return; }
+    if (car.broken[f.q] || (shell && !shell.anyGone)) { _d.scale.set(0, 0, 0); _d.updateMatrix(); frameMesh.setMatrixAt(i, _d.matrix); return; }
     _pa.set(car.px[f.a], car.py[f.a], car.pz[f.a]); _pb.set(car.px[f.b], car.py[f.b], car.pz[f.b]);
     _d.position.copy(_pa).add(_pb).multiplyScalar(0.5); _d.lookAt(_pb); _d.scale.set(f.w, f.w, _pa.distanceTo(_pb)); _d.updateMatrix();
     frameMesh.setMatrixAt(i, _d.matrix);
@@ -933,6 +943,7 @@ el('drive').onclick = () => {
 setTimeout(() => setMouseCam(true), 0);
 const camPos = new THREE.Vector3(0, 6, -12), camLook = new THREE.Vector3();
 
+window.__shell = () => shell;
 let shotCam = null; window.__shot = (p, t) => { shotCam = p ? { p, t } : null; };   // debug hook for screenshots
 function updateCamera(dt) {
   if (shotCam) { const c0 = car.com; camera.position.set(c0[0] + shotCam.p[0], c0[1] + shotCam.p[1], c0[2] + shotCam.p[2]); camera.lookAt(c0[0] + shotCam.t[0], c0[1] + shotCam.t[1], c0[2] + shotCam.t[2]); return; }

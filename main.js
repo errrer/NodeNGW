@@ -298,7 +298,7 @@ function buildCar(key) {
     interior.push({ mesh, anchor, off, tq: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), tilt) });
   };
   const SEAT = 0x2b2b30, TRIM = 0x1b1b1f;
-  const zf = Zs[5] - 0.1, zr = Zs[3] + 0.15, yf = d.YF[5] + 0.3, yr = d.YF[3] + 0.3;
+  const zf = Zs[5] - 0.1, zr = d.bed ? Zs[4] + 0.3 : Zs[3] + 0.15, yf = d.YF[5] + 0.3, yr = d.YF[3] + 0.3;
   for (const sx of [0.36, -0.36]) {
     addIt(bx(0.46, 0.14, 0.5, SEAT), sx, yf, zf); addIt(bx(0.46, 0.55, 0.11, SEAT), sx, yf + 0.3, zf - 0.27, -0.15);
   }

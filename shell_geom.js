@@ -124,11 +124,11 @@ export function buildShellGeometry(d) {
     const N = 22, ringO = [], ringI = [], lipA = [], lipB = [];
     for (let k = 0; k <= N; k++) {
       const th = -0.18 * Math.PI + (1.36 * Math.PI) * k / N;          // from just below the axle at the rear, over the top, to just below the axle at the front
-      const y = a.yc + a.Ra * Math.sin(th), zz = a.zc - a.Ra * Math.cos(th);
-      const sec = secAt(zz), x0 = sideX(sec.R, Math.max(y, sec.yf + 0.04)) * a.sg;
+      const zz = a.zc - a.Ra * Math.cos(th), sec = secAt(zz), y = Math.max(a.yc + a.Ra * Math.sin(th), sec.yf + 0.03);
+      const x0 = sideX(sec.R, Math.max(y, sec.yf + 0.04)) * a.sg;
       let v = pos.length / 3; pos.push(x0 - a.sg * 0.004, y, zz); trim.push(1); ringO.push(v);
       v = pos.length / 3; pos.push(x0 - a.sg * 0.34, y - 0.02, zz); trim.push(1); ringI.push(v);
-      const yo = a.yc + (a.Ra + flare) * Math.sin(th), zo = a.zc - (a.Ra + flare) * Math.cos(th), xo = sideX(secAt(zo).R, Math.max(yo, sec.yf + 0.04)) * a.sg;
+      const yo = Math.max(a.yc + (a.Ra + flare) * Math.sin(th), sec.yf + 0.03), zo = a.zc - (a.Ra + flare) * Math.cos(th), xo = sideX(secAt(zo).R, Math.max(yo, sec.yf + 0.04)) * a.sg;
       v = pos.length / 3; pos.push(xo + a.sg * 0.006, yo, zo); trim.push(1); lipB.push(v);
       v = pos.length / 3; pos.push(x0 + a.sg * 0.006, y, zz); trim.push(1); lipA.push(v);
     }

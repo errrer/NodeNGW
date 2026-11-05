@@ -323,9 +323,20 @@ export class Shell {
       else { glassTris.push(a, b, c); bodyTris.push(a, b, c); }   // straddles a window edge: both meshes, trimmed per pixel by the mask
     }
     // build the two meshes (glass gets its own vertices so it can be skinned to the glass panels)
-    this.body = this.makePart(geo, rn, bodyTris, false);
-    this.glass = this.makePart(geo, rn, glassTris, true);
-    this.bindSkin(this.body, car, false); this.bindSkin(this.glass, car, true);
+    this.cellsB = this.buildCells(car, false); this.cellsG = this.buildCells(car, true);
+    const ownerOf = (tris, cells) => {                                    // a triangle belongs to the panel cell nearest its centre
+      const out = new Int16Array(tris.length / 3);
+      for (let i = 0; i < tris.length; i += 3) {
+        let cx = 0, cy = 0, cz = 0; for (let k = 0; k < 3; k++) { cx += geo.pos[tris[i + k] * 3]; cy += geo.pos[tris[i + k] * 3 + 1]; cz += geo.pos[tris[i + k] * 3 + 2]; }
+        cx /= 3; cy /= 3; cz /= 3; let best = 1e9, bp = cells[0].pi;
+        for (const c of cells) { const dd = (c.cx - cx) ** 2 + (c.cy - cy) ** 2 + (c.cz - cz) ** 2; if (dd < best) { best = dd; bp = c.pi; } }
+        out[i / 3] = bp;
+      }
+      return out;
+    };
+    this.body = this.makePart(geo, rn, bodyTris, false, ownerOf(bodyTris, this.cellsB));
+    this.glass = this.makePart(geo, rn, glassTris, true, ownerOf(glassTris, this.cellsG));
+    this.bindSkin(this.body, car, this.cellsB); this.bindSkin(this.glass, car, this.cellsG);
 
     const maskTex = new THREE.DataTexture(new Uint8Array(masks.data), S, S, THREE.RGBAFormat); maskTex.needsUpdate = true; maskTex.minFilter = maskTex.magFilter = THREE.LinearFilter; maskTex.generateMipmaps = false;
     const bedUni = d.bed ? new THREE.Vector4(geo.zmin + 0.12, Z4(d) + 0.06, 0.93 * d.WB[1], d.YR[1] - 0.02) : new THREE.Vector4(1e9, 1e9, 0, 0);
@@ -373,11 +384,12 @@ export class Shell {
     this.sig = ''; this.frame = 0; this.anyGone = false;
   }
 
-  makePart(geo, rn, tris, isGlass) {
-    const map = new Map(), pos = [], rest = [], nrm = [], trim = [], idx = [];
-    for (const v of tris) {
-      let k = map.get(v);
-      if (k === undefined) { k = pos.length / 3; map.set(v, k); pos.push(geo.pos[v * 3], geo.pos[v * 3 + 1], geo.pos[v * 3 + 2]); rest.push(geo.pos[v * 3], geo.pos[v * 3 + 1], geo.pos[v * 3 + 2]); nrm.push(rn[v * 3], rn[v * 3 + 1], rn[v * 3 + 2]); trim.push(geo.trim[v]); }
+  makePart(geo, rn, tris, isGlass, triPan) {
+    const map = new Map(), pos = [], rest = [], nrm = [], trim = [], idx = [], own = [];
+    for (let ti = 0; ti < tris.length; ti++) {
+      const v = tris[ti], pan = triPan[(ti / 3) | 0], key = v * 128 + pan;     // every part gets its own copy of the vertices it uses, so parts never share (or drag) each other's skin
+      let k = map.get(key);
+      if (k === undefined) { k = pos.length / 3; map.set(key, k); own.push(pan); pos.push(geo.pos[v * 3], geo.pos[v * 3 + 1], geo.pos[v * 3 + 2]); rest.push(geo.pos[v * 3], geo.pos[v * 3 + 1], geo.pos[v * 3 + 2]); nrm.push(rn[v * 3], rn[v * 3 + 1], rn[v * 3 + 2]); trim.push(geo.trim[v]); }
       idx.push(k);
     }
     const g = new THREE.BufferGeometry(), n = pos.length / 3;
@@ -397,25 +409,32 @@ export class Shell {
     }
     const full = new Uint32Array(idx);
     const index = new THREE.BufferAttribute(new Uint32Array(idx), 1); g.setIndex(index);
-    return { geo: g, n, full, index, owner: new Int16Array(n), nodes: new Int16Array(n * 4), w: new Float32Array(n * 4), res: new Float32Array(n * 3), tri: full };
+    return { geo: g, n, full, index, owner: Int16Array.from(own), cell: new Int16Array(n), nodes: new Int16Array(n * 4), w: new Float32Array(n * 4), res: new Float32Array(n * 3), tri: full };
   }
 
-  bindSkin(part, car, isGlass) {
-    const lx = car.lx, ly = car.ly, lz = car.lz, panels = car.panels;
+  buildCells(car, isGlass) {
+    const lx = car.lx, ly = car.ly, lz = car.lz, panels = car.panels, cells = [], bq = new Map();
     this.pcount = panels.length;
-    const cells = [];                                                    // every panel cell with its four rest corner positions
+    for (let q = 0; q < car.NB; q++) bq.set(Math.min(car.ba[q], car.bb[q]) * 4096 + Math.max(car.ba[q], car.bb[q]), q);
+    const qf = (a, b) => { const q = bq.get(Math.min(a, b) * 4096 + Math.max(a, b)); return q === undefined ? -1 : q; };
     panels.forEach((p, pi) => {
       if (!!p.glass !== isGlass) return;
       for (let r = 0; r + 1 < p.rows; r++) for (let c = 0; c + 1 < p.cols; c++) {
         const ids = [p.nodes[r * p.cols + c], p.nodes[r * p.cols + c + 1], p.nodes[(r + 1) * p.cols + c], p.nodes[(r + 1) * p.cols + c + 1]];
         let cx = 0, cy = 0, cz = 0; for (const i of ids) { cx += lx[i]; cy += ly[i]; cz += lz[i]; }
-        cells.push({ pi, ids, cx: cx / 4, cy: cy / 4, cz: cz / 4 });
+        cells.push({ pi, ids, cx: cx / 4, cy: cy / 4, cz: cz / 4, gi: cells.length, qs: [qf(ids[0], ids[1]), qf(ids[2], ids[3]), qf(ids[0], ids[2]), qf(ids[1], ids[3])] });
       }
     });
+    return cells;
+  }
+
+  bindSkin(part, car, allCells) {
+    const lx = car.lx, ly = car.ly, lz = car.lz;
+    const byPanel = new Map(); for (const c of allCells) { if (!byPanel.has(c.pi)) byPanel.set(c.pi, []); byPanel.get(c.pi).push(c); }
     const pos = part.geo.attributes.position.array, W = [0, 0, 0, 0];
     for (let v = 0; v < part.n; v++) {
       const x = pos[v * 3], y = pos[v * 3 + 1], z = pos[v * 3 + 2];
-      let best = 1e9, bc = cells[0];
+      let best = 1e9; const cells = byPanel.get(part.owner[v]) || allCells; let bc = cells[0];
       for (const c of cells) { const dd = (c.cx - x) ** 2 + (c.cy - y) ** 2 + (c.cz - z) ** 2; if (dd < best) { best = dd; bc = c; } }
       const [A, B, C, D] = bc.ids;
       let u = 0.5, t = 0.5;
@@ -428,13 +447,13 @@ export class Shell {
         const a11 = dux * dux + duy * duy + duz * duz + 1e-6, a12 = dux * dtx + duy * dty + duz * dtz, a22 = dtx * dtx + dty * dty + dtz * dtz + 1e-6;
         const b1 = -(dux * px + duy * py + duz * pz), b2 = -(dtx * px + dty * py + dtz * pz), det = a11 * a22 - a12 * a12 || 1e-9;
         u += (b1 * a22 - b2 * a12) / det * 0.8; t += (a11 * b2 - a12 * b1) / det * 0.8;
-        u = Math.max(-0.3, Math.min(1.3, u)); t = Math.max(-0.3, Math.min(1.3, t));
+        u = Math.max(-0.6, Math.min(1.6, u)); t = Math.max(-0.6, Math.min(1.6, t));
       }
       W[0] = (1 - u) * (1 - t); W[1] = u * (1 - t); W[2] = (1 - u) * t; W[3] = u * t;
       let ax = 0, ay = 0, az = 0;
       for (let k = 0; k < 4; k++) { part.nodes[v * 4 + k] = bc.ids[k]; part.w[v * 4 + k] = W[k]; ax += W[k] * lx[bc.ids[k]]; ay += W[k] * ly[bc.ids[k]]; az += W[k] * lz[bc.ids[k]]; }
       part.res[v * 3] = x - ax; part.res[v * 3 + 1] = y - ay; part.res[v * 3 + 2] = z - az;
-      part.owner[v] = bc.pi;
+      part.cell[v] = bc.gi;
     }
   }
 
@@ -452,19 +471,21 @@ export class Shell {
   // called every frame after car.syncRender()
   update(car, nd, showBeams) {
     this.frame++;
-    // which panels are missing / flying loose decides which triangles are drawn
-    let sig = '';
+    // which panels are missing decides which triangles are drawn; a body cell whose edge beams have snapped is a hole (torn metal)
     const state = new Uint8Array(car.panels.length);
+    let sig = '';
     car.panels.forEach((p, i) => { state[i] = p.gone ? (p.deb ? 1 : 2) : 0; sig += state[i]; });
+    const bad = this.bad || (this.bad = new Uint8Array(this.cellsB.length));
+    if (!this.noTear) for (const c of this.cellsB) { let b = 0; if (!car.panels[c.pi].gone) for (const q of c.qs) if (q >= 0 && car.broken[q]) { b = 1; break; } bad[c.gi] = b; if (b) sig += '|' + c.gi; }
     if (sig !== this.sig) {
       this.sig = sig; this.anyGone = /[12]/.test(sig);
       for (const part of [this.body, this.glass]) {
-        const out = []; const t = part.full, o = part.owner;
+        const out = []; const t = part.full, o = part.owner, isB = part === this.body, cl = part.cell;
         for (let i = 0; i < t.length; i += 3) {
-          const a = o[t[i]], b = o[t[i + 1]], c = o[t[i + 2]], sa = state[a], sb = state[b], sc = state[c];
-          if (sa === 2 || sb === 2 || sc === 2) continue;
-          if ((sa === 1 || sb === 1 || sc === 1) && !(a === b && b === c)) continue;
-          out.push(t[i], t[i + 1], t[i + 2]);
+          const a = t[i], b = t[i + 1], c = t[i + 2];
+          if (state[o[a]] === 2) continue;
+          if (isB && (bad[cl[a]] || bad[cl[b]] || bad[cl[c]])) continue;
+          out.push(a, b, c);
         }
         const arr = part.index.array;           // the GPU buffer cannot be resized, so rewrite the same array and shorten the draw range
         for (let k = 0; k < out.length; k++) arr[k] = out[k];

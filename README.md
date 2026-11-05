@@ -65,3 +65,6 @@ To run locally: `python3 -m http.server` and open http://localhost:8000 (ES modu
 - **Engine damage** reduces power; **flat tyres** from blades/poles or hard rim strikes (squashed wheel, rim sparks, less grip).
 - **Hinged hood/doors** buckle and pop upward; panels keep a stand-off so they never sink into each other (but don't collide).
 - Real-car proportions and detail meshes (bumpers, lamps, plates, mirrors, handles).
+
+## Multiplayer
+Open the menu, press **Host room** and send the 4-letter code to friends (or send `?room=CODE` on the page link); they type it under **Join**. Up to 6 players, peer-to-peer over WebRTC (PeerJS public signalling, no server of your own). Everyone simulates their own car and sees the others with live dents, torn panels, cracked glass and name tags; cars collide with each other. Rolling balls and the swinging ball are not shared between players.

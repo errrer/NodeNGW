@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Car, VEHICLES, OBSTACLES, TREES, BALLS, RAMPS, terrainHeight, onRamp, resetBalls, WATER, WORLD_HALF, st as stn, ENG, CORE as CORE_N, FUEL as FUEL_N } from './physics.js';
 import { Particles, Skids } from './fx.js';
 import { Shell } from './shell.js';
+import { createMP } from './mp.js';
 
 // ------------------------------------------------------------ settings
 const COLORS = [[0.72, 0.07, 0.1], [0.1, 0.3, 0.85], [0.95, 0.75, 0.1], [0.1, 0.6, 0.3], [0.9, 0.9, 0.92], [0.07, 0.07, 0.09], [0.95, 0.4, 0.05], [0.62, 0.64, 0.68], [0.04, 0.5, 0.42]];
@@ -224,6 +225,22 @@ function crackTexture() {
   return _crackTex;
 }
 
+function makeWheel(def) {
+  const WR = def.WR;
+  const g = new THREE.Group();
+  const tw = def.tyreW || 0.26, rr = def.rim || 0.62;
+  const tg = new THREE.CylinderGeometry(WR, WR, tw, 24); tg.rotateZ(Math.PI / 2);
+  const tyre = new THREE.Mesh(tg, new THREE.MeshLambertMaterial({ color: 0x151515 }));
+  const rg = new THREE.CylinderGeometry(WR * rr, WR * rr, tw + 0.02, 16); rg.rotateZ(Math.PI / 2);
+  const rim = new THREE.Mesh(rg, new THREE.MeshStandardMaterial({ color: 0x9aa0a6, metalness: 0.8, roughness: 0.3 }));
+  const spoke = new THREE.Mesh(new THREE.BoxGeometry(tw + 0.04, WR * 2 * rr * 0.95, 0.06), new THREE.MeshLambertMaterial({ color: 0x444444 }));
+  const spoke2 = spoke.clone(); spoke2.rotation.x = Math.PI / 2;
+  const spin = new THREE.Group(); spin.add(tyre, rim, spoke, spoke2);
+  spin.traverse((o) => { o.castShadow = true; });
+  g.add(spin); g.userData.spin = spin;
+  scene.add(g);
+  return g;
+}
 function buildCar(key) {
   const prev = car ? [car.com[0], car.com[2], car.yaw] : [0, 0, 0];
   disposeCar();
@@ -324,22 +341,7 @@ function buildCar(key) {
   addIt(bx(0.9, 0.38, 0.07, 0x1d1d20), 0, (d.YF[9] + d.YB[9]) / 2, Math.min(Zs[10] + 0.4, Zs[11] - 0.3));   // radiator, kept inside the nose
   addIt(bx(0.4, 0.14, 1.6, 0x4a4d50, 0.5), 0, d.YF[4] - 0.02, (Zs[3] + Zs[5]) / 2);
 
-  const WR = car.WR;
-  wheelGroups = car.wheels.map(() => {
-    const g = new THREE.Group();
-    const tw = car.def.tyreW || 0.26, rr = car.def.rim || 0.62;
-    const tg = new THREE.CylinderGeometry(WR, WR, tw, 24); tg.rotateZ(Math.PI / 2);
-    const tyre = new THREE.Mesh(tg, new THREE.MeshLambertMaterial({ color: 0x151515 }));
-    const rg = new THREE.CylinderGeometry(WR * rr, WR * rr, tw + 0.02, 16); rg.rotateZ(Math.PI / 2);
-    const rim = new THREE.Mesh(rg, new THREE.MeshStandardMaterial({ color: 0x9aa0a6, metalness: 0.8, roughness: 0.3 }));
-    const spoke = new THREE.Mesh(new THREE.BoxGeometry(tw + 0.04, WR * 2 * rr * 0.95, 0.06), new THREE.MeshLambertMaterial({ color: 0x444444 }));
-    const spoke2 = spoke.clone(); spoke2.rotation.x = Math.PI / 2;
-    const spin = new THREE.Group(); spin.add(tyre, rim, spoke, spoke2);
-    spin.traverse((o) => { o.castShadow = true; });
-    g.add(spin); g.userData.spin = spin;
-    scene.add(g);
-    return g;
-  });
+  wheelGroups = car.wheels.map(() => makeWheel(car.def));
 
   const lampG = new THREE.SphereGeometry(0.13, 10, 8);
   headMeshes = [0, 1].map(() => { const m = new THREE.Mesh(lampG, new THREE.MeshBasicMaterial({ color: 0xfff6d0 })); scene.add(m); return m; });
@@ -481,7 +483,7 @@ function updateVisuals() {
 
   // steel frame
   frameBeams.forEach((f, i) => {
-    if (car.broken[f.q] || (shell && !shell.anyGone)) { _d.scale.set(0, 0, 0); _d.updateMatrix(); frameMesh.setMatrixAt(i, _d.matrix); return; }
+    if (car.broken[f.q] || (shell && !showBeams)) { _d.scale.set(0, 0, 0); _d.updateMatrix(); frameMesh.setMatrixAt(i, _d.matrix); return; }
     _pa.set(car.px[f.a], car.py[f.a], car.pz[f.a]); _pb.set(car.px[f.b], car.py[f.b], car.pz[f.b]);
     _d.position.copy(_pa).add(_pb).multiplyScalar(0.5); _d.lookAt(_pb); _d.scale.set(f.w, f.w, _pa.distanceTo(_pb)); _d.updateMatrix();
     frameMesh.setMatrixAt(i, _d.matrix);
@@ -983,6 +985,9 @@ function updateCamera(dt) {
 
 // ------------------------------------------------------------ loop
 const _q = new THREE.Quaternion(), _ax = new THREE.Vector3();
+const mp = createMP({ scene, camera, getCar: () => car, COLORS, makeWheel, crackTexture, toast, lightsOn: () => nightMode || lightsOn, getColor: () => (car && car._colorIdx !== undefined ? car._colorIdx : settings.color) });
+mp.buildUI(el('drive'));
+window.__mp = mp;
 let last = performance.now();
 applyTime(settings.time);
 applyQuality(settings.quality);
@@ -1013,6 +1018,7 @@ function frame(now) {
   audioUpdate();
 
   updateVisuals();
+  mp.update(dt);
   BALLS.forEach((b, i) => {
     const m = ballMeshes[i]; m.position.set(b.x, b.y, b.z);
     const sp = Math.hypot(b.vx, b.vz);

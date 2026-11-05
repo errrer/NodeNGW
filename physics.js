@@ -644,6 +644,59 @@ export class Car {
     this.computeFrame();
   }
 
+  // ---- multiplayer: other players' cars are non-simulated ghosts; our nodes are pushed off their nodes with a penalty force
+  prepGhosts() {
+    this.gcN = 0; const gs = this.ghosts;
+    if (!gs || !gs.length) return;
+    if (!this.outer) {
+      const o = []; for (let i = 0; i < NR; i++) o.push(i);
+      for (let w = 0; w < 4; w++) o.push(HUB + w);
+      for (let i = NCH; i < this.NN; i++) o.push(i);
+      this.outer = Int32Array.from(o); this._gli = new Int32Array(this.NN);
+      this._gx = new Float64Array(3072); this._gy = new Float64Array(3072); this._gz = new Float64Array(3072);
+      this._gvx = new Float64Array(3072); this._gvy = new Float64Array(3072); this._gvz = new Float64Array(3072); this._gr = new Float64Array(3072);
+    }
+    const { px, py, pz } = this, M = 1.6;
+    let x0 = 1e9, y0 = 1e9, z0 = 1e9, x1 = -1e9, y1 = -1e9, z1 = -1e9;
+    for (const i of this.outer) { if (this.dead[i]) continue; x0 = Math.min(x0, px[i]); x1 = Math.max(x1, px[i]); y0 = Math.min(y0, py[i]); y1 = Math.max(y1, py[i]); z0 = Math.min(z0, pz[i]); z1 = Math.max(z1, pz[i]); }
+    let gn = 0, gx0 = 1e9, gy0 = 1e9, gz0 = 1e9, gx1 = -1e9, gy1 = -1e9, gz1 = -1e9;
+    for (const g of gs) {
+      const c = g.car, { rx, ry, rz } = c;
+      for (const i of this.outer) {
+        const x = rx[i], y = ry[i], z = rz[i];
+        if (x === 0 && y === 0 && z === 0) continue;
+        if (x < x0 - M || x > x1 + M || y < y0 - M || y > y1 + M || z < z0 - M || z > z1 + M || gn >= 3072) continue;
+        this._gx[gn] = x; this._gy[gn] = y; this._gz[gn] = z; this._gvx[gn] = c.vx[i]; this._gvy[gn] = c.vy[i]; this._gvz[gn] = c.vz[i];
+        this._gr[gn] = (i >= HUB && i < HUB + 4) ? 0.33 : 0.14; gn++;
+        gx0 = Math.min(gx0, x); gx1 = Math.max(gx1, x); gy0 = Math.min(gy0, y); gy1 = Math.max(gy1, y); gz0 = Math.min(gz0, z); gz1 = Math.max(gz1, z);
+      }
+    }
+    if (!gn) return;
+    let n = 0;
+    for (const i of this.outer) {
+      if (this.dead[i]) continue;
+      if (px[i] < gx0 - M || px[i] > gx1 + M || py[i] < gy0 - M || py[i] > gy1 + M || pz[i] < gz0 - M || pz[i] > gz1 + M) continue;
+      this._gli[n++] = i;
+    }
+    this.gcN = n; this._gn = gn;
+  }
+  ghostForces() {
+    const { px, py, pz, vx, vy, vz, fx, fy, fz, m } = this, li = this._gli, gx = this._gx, gy = this._gy, gz = this._gz, gvx = this._gvx, gvy = this._gvy, gvz = this._gvz, gr = this._gr, gn = this._gn;
+    for (let a = 0; a < this.gcN; a++) {
+      const i = li[a], rl = (i >= HUB && i < HUB + 4) ? 0.33 : 0.14, xi = px[i], yi = py[i], zi = pz[i];
+      for (let b = 0; b < gn; b++) {
+        const dx = xi - gx[b], dy = yi - gy[b], dz = zi - gz[b], r = rl + gr[b];
+        if (dx > r || dx < -r || dy > r || dy < -r || dz > r || dz < -r) continue;
+        const d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 >= r * r) continue;
+        const d = Math.sqrt(d2) + 1e-6, nx = dx / d, ny = dy / d, nz = dz / d;
+        const vn = (vx[i] - gvx[b]) * nx + (vy[i] - gvy[b]) * ny + (vz[i] - gvz[b]) * nz;
+        const F = Math.min(m[i] * 6000, m[i] * (4e5 * (r - d) - 450 * vn));
+        if (F > 0) { fx[i] += F * nx; fy[i] += F * ny; fz[i] += F * nz; this.plastic += 0; }
+      }
+    }
+  }
+
   computeFrame() {
     const { px, py, pz, vx, vy, vz, m } = this;
     let fx = 0, fy = 0, fz = 0, lx = 0, ly = 0, lz = 0;
@@ -846,6 +899,7 @@ export class Car {
   // frame-level update: steering, gearbox, then fixed sub-steps
   advance(dt, inp) {
     const d = this.def;
+    this.prepGhosts();
     for (const b of OBSTACLES) {   // safety net (only for big solids; thin poles must be wrapped around, not teleported away from)
       if (b.max[0] - b.min[0] < 0.9 || b.max[2] - b.min[2] < 0.9) continue;
       if (this.com[0] > b.min[0] && this.com[0] < b.max[0] && this.com[1] > b.min[1] && this.com[1] < b.max[1] && this.com[2] > b.min[2] && this.com[2] < b.max[2]) {
@@ -965,6 +1019,7 @@ export class Car {
       const dr = d.drag * sp * (m[i] / 50);
       fx[i] = -vx[i] * dr; fy[i] = -G * m[i] - vy[i] * dr; fz[i] = -vz[i] * dr;
     }
+    if (this.gcN) this.ghostForces();
 
     if (this.inLake) {      // buoyancy and water drag on every node under the surface
       for (let i = 0; i < NN; i++) {

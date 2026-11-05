@@ -445,7 +445,9 @@ export class Shell {
           if ((sa === 1 || sb === 1 || sc === 1) && !(a === b && b === c)) continue;
           out.push(t[i], t[i + 1], t[i + 2]);
         }
-        part.index.array = new Uint32Array(out); part.index.count = out.length; part.index.needsUpdate = true; part.geo.setDrawRange(0, out.length);
+        const arr = part.index.array;           // the GPU buffer cannot be resized, so rewrite the same array and shorten the draw range
+        for (let k = 0; k < out.length; k++) arr[k] = out[k];
+        part.index.needsUpdate = true; part.geo.setDrawRange(0, out.length);
       }
     }
     this.skin(this.body, car); this.skin(this.glass, car);

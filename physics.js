@@ -1081,8 +1081,13 @@ export class Car {
       const L = Math.hypot(px[bk.a] - px[bk.b], py[bk.a] - py[bk.b], pz[bk.a] - pz[bk.b]), comp = 1 - L / bk.rest;
       if (comp > 0.03) {
         if (comp > 0.1 && !p.released) p.popped = true;
-        const f = Math.min(900, 4000 * (comp - 0.03)) / bk.mids.length, u = this.up;
-        for (const i of bk.mids) { fx[i] += u[0] * f; fy[i] += u[1] * f; fz[i] += u[2] * f; }
+        const f = Math.min(450, 3000 * (comp - 0.03)) / bk.mids.length, u = this.up;
+        const hx = (px[bk.a] + px[bk.b]) * 0.5, hy = (py[bk.a] + py[bk.b]) * 0.5, hz = (pz[bk.a] + pz[bk.b]) * 0.5;
+        for (const i of bk.mids) {   // only lifts the crumpling sheet a little: once it stands well above its ends it folds under its own weight
+          const h = (px[i] - hx) * u[0] + (py[i] - hy) * u[1] + (pz[i] - hz) * u[2];
+          if (h > 0.28) continue;
+          fx[i] += u[0] * f; fy[i] += u[1] * f; fz[i] += u[2] * f;
+        }
       }
     }
     // air catches an unlatched hood or trunk lid and lifts it

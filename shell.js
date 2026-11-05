@@ -274,6 +274,14 @@ function packLamp(lm) {
   c.putImageData(img, 0, 0); return t;
 }
 
+const WINFN = `float winMask(vec3 rp, vec3 rn) {
+          if (abs(rn.x) > 0.55 && abs(rn.x) >= abs(rn.y)) return texture2D(uMask, vec2((rp.z - uZ0) / uZL, 1.0 - rp.y / uH)).r;
+          if (rn.y > 0.42) return texture2D(uMask, vec2(rp.x / (2.0 * uWH) + 0.5, 1.0 - (rp.z - uZ0) / uZL)).a;
+          if (rn.z > 0.0) return texture2D(uMask, vec2(rp.x / (2.0 * uWH) + 0.5, 1.0 - rp.y / uH)).g;
+          return texture2D(uMask, vec2(rp.x / (2.0 * uWH) + 0.5, 1.0 - rp.y / uH)).b;
+        }
+`;
+
 // ------------------------------------------------------------------ the skinned shell
 export class Shell {
   constructor(car, paint, crackTex, scene) {
@@ -306,18 +314,24 @@ export class Shell {
       const cx = (geo.pos[a * 3] + geo.pos[b * 3] + geo.pos[c * 3]) / 3, cy = (geo.pos[a * 3 + 1] + geo.pos[b * 3 + 1] + geo.pos[c * 3 + 1]) / 3, cz = (geo.pos[a * 3 + 2] + geo.pos[b * 3 + 2] + geo.pos[c * 3 + 2]) / 3;
       const nx = rn[a * 3] + rn[b * 3] + rn[c * 3], ny = rn[a * 3 + 1] + rn[b * 3 + 1] + rn[c * 3 + 1], nz = rn[a * 3 + 2] + rn[b * 3 + 2] + rn[c * 3 + 2];
       const l = Math.hypot(nx, ny, nz) || 1;
-      const trimmed = geo.trim[a] > 0.5;
-      (!trimmed && glassAt(proj(nx / l, ny / l, nz / l), 0, cx, cy, cz) ? glassTris : bodyTris).push(a, b, c);
+      const trimmed = geo.trim[a] > 0.5, pj = proj(nx / l, ny / l, nz / l);
+      if (trimmed) { bodyTris.push(a, b, c); continue; }
+      let hit = glassAt(pj, 0, cx, cy, cz) ? 1 : 0;
+      for (const v of [a, b, c]) hit += glassAt(pj, 0, geo.pos[v * 3], geo.pos[v * 3 + 1], geo.pos[v * 3 + 2]) ? 1 : 0;
+      if (hit === 4) glassTris.push(a, b, c);
+      else if (hit === 0) bodyTris.push(a, b, c);
+      else { glassTris.push(a, b, c); bodyTris.push(a, b, c); }   // straddles a window edge: both meshes, trimmed per pixel by the mask
     }
     // build the two meshes (glass gets its own vertices so it can be skinned to the glass panels)
     this.body = this.makePart(geo, rn, bodyTris, false);
     this.glass = this.makePart(geo, rn, glassTris, true);
     this.bindSkin(this.body, car, false); this.bindSkin(this.glass, car, true);
 
+    const maskTex = new THREE.DataTexture(new Uint8Array(masks.data), S, S, THREE.RGBAFormat); maskTex.needsUpdate = true; maskTex.minFilter = maskTex.magFilter = THREE.LinearFilter; maskTex.generateMipmaps = false;
     const bedUni = d.bed ? new THREE.Vector4(geo.zmin + 0.12, Z4(d) + 0.06, 0.93 * d.WB[1], d.YR[1] - 0.02) : new THREE.Vector4(1e9, 1e9, 0, 0);
     this.uniforms = {
       uSide: { value: tex(P.cv.side, true) }, uFront: { value: tex(P.cv.front, true) }, uRear: { value: tex(P.cv.rear, true) }, uTop: { value: tex(P.cv.top, true) },
-      uLamp: { value: tex(packLamp(P.lm), false) }, uZ0: { value: P.Z0 }, uZL: { value: P.ZL }, uH: { value: H }, uWH: { value: WH }, uBed: { value: bedUni },
+      uLamp: { value: tex(packLamp(P.lm), false) }, uMask: { value: maskTex }, uZ0: { value: P.Z0 }, uZL: { value: P.ZL }, uH: { value: H }, uWH: { value: WH }, uBed: { value: bedUni },
       uHead: { value: 0 }, uTail: { value: 0.25 }, uPaint: { value: new THREE.Color(...paint) }, uRoof: { value: d.look && d.look.roof ? new THREE.Color(...d.look.roof) : null },
     };
     const mat = this.mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.36, metalness: 0.45, side: THREE.DoubleSide });
@@ -327,11 +341,12 @@ export class Shell {
       Object.assign(sh.uniforms, U);
       sh.vertexShader = 'attribute vec3 aRest; attribute vec3 aRestN; attribute float aTrim; attribute float aDmg;\nvarying vec3 vRest; varying vec3 vRestN; varying float vTrim; varying float vDmg;\n' +
         sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vRest = aRest; vRestN = aRestN; vTrim = aTrim; vDmg = aDmg;');
-      sh.fragmentShader = 'uniform sampler2D uSide, uFront, uRear, uTop, uLamp; uniform float uZ0, uZL, uH, uWH, uHead, uTail; uniform vec4 uBed;\nvarying vec3 vRest; varying vec3 vRestN; varying float vTrim; varying float vDmg;\n' +
+      sh.fragmentShader = 'uniform sampler2D uSide, uFront, uRear, uTop, uLamp, uMask; uniform float uZ0, uZL, uH, uWH, uHead, uTail; uniform vec4 uBed;\nvarying vec3 vRest; varying vec3 vRestN; varying float vTrim; varying float vDmg;\n' + WINFN +
         sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
         float lampH = 0.0, lampT = 0.0;
         {
           vec3 rn = normalize(vRestN); vec3 rp = vRest; vec4 t = vec4(0.0); vec2 uv;
+          if (vTrim < 0.5 && winMask(rp, rn) > 0.5) discard;
           if (abs(rn.x) > 0.55 && abs(rn.x) >= abs(rn.y)) { t = texture2D(uSide, vec2((rp.z - uZ0) / uZL, rp.y / uH)); }
           else if (rn.y > 0.42) { t = texture2D(uTop, vec2(rp.x / (2.0 * uWH) + 0.5, (rp.z - uZ0) / uZL)); }
           else if (rn.z > 0.0) { uv = vec2(rp.x / (2.0 * uWH) + 0.5, rp.y / uH); t = texture2D(uFront, uv); lampH = texture2D(uLamp, uv).r; }
@@ -345,6 +360,12 @@ export class Shell {
     };
     this.bodyMesh = new THREE.Mesh(this.body.geo, mat); this.bodyMesh.frustumCulled = false; this.bodyMesh.castShadow = true;
     const gmat = new THREE.MeshPhongMaterial({ color: 0x17262f, transparent: true, opacity: 0.5, specular: 0xffffff, shininess: 140, depthWrite: false, side: THREE.DoubleSide });
+    gmat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, U);
+      sh.vertexShader = 'attribute vec3 aRest; attribute vec3 aRestN;\nvarying vec3 vRest; varying vec3 vRestN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vRest = aRest; vRestN = aRestN;');
+      sh.fragmentShader = 'uniform sampler2D uMask; uniform float uZ0, uZL, uH, uWH;\nvarying vec3 vRest; varying vec3 vRestN;\n' + WINFN +
+        sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n if (winMask(vRest, normalize(vRestN)) < 0.5) discard;');
+    };
     this.glassMesh = new THREE.Mesh(this.glass.geo, gmat); this.glassMesh.frustumCulled = false; this.glassMesh.renderOrder = 2;
     const cmat = new THREE.MeshBasicMaterial({ map: crackTex, vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     this.crackMesh = new THREE.Mesh(this.glass.geo, cmat); this.crackMesh.frustumCulled = false; this.crackMesh.renderOrder = 3;
@@ -468,7 +489,7 @@ export class Shell {
   dispose() {
     for (const m of [this.bodyMesh, this.glassMesh, this.crackMesh]) { this.scene.remove(m); }
     this.body.geo.dispose(); this.glass.geo.dispose(); this.mat.dispose();
-    for (const k of ['uSide', 'uFront', 'uRear', 'uTop', 'uLamp']) this.uniforms[k].value.dispose();
+    for (const k of ['uSide', 'uFront', 'uRear', 'uTop', 'uLamp', 'uMask']) this.uniforms[k].value.dispose();
   }
 }
 

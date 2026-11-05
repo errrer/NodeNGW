@@ -315,7 +315,7 @@ function buildCar(key) {
     interior.push({ mesh, anchor, off, tq: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), tilt) });
   };
   const SEAT = 0x2b2b30, TRIM = 0x1b1b1f;
-  const zf = Zs[5] - 0.1, zr = d.bed ? Zs[4] + 0.3 : Zs[3] + 0.15, yf = d.YF[5] + 0.3, yr = d.YF[3] + 0.3;
+  const zf = Zs[5] - 0.1, zr = Zs[4] + 0.3, yf = d.YF[5] + 0.3, yr = d.YF[3] + 0.3;
   for (const sx of [0.36, -0.36]) {
     addIt(bx(0.46, 0.14, 0.5, SEAT), sx, yf, zf); addIt(bx(0.46, 0.55, 0.11, SEAT), sx, yf + 0.3, zf - 0.27, -0.15);
   }
@@ -338,7 +338,6 @@ function buildCar(key) {
     scene.add(engineMesh);
   }
   addIt(bx(0.7, 0.2, 0.45, 0x2c2f31, 0.2), 0, 0, 0, 0, FUEL_N);
-  addIt(bx(0.9, 0.38, 0.07, 0x1d1d20), 0, (d.YF[9] + d.YB[9]) / 2, Math.min(Zs[10] + 0.4, Zs[11] - 0.3));   // radiator, kept inside the nose
   addIt(bx(0.4, 0.14, 1.6, 0x4a4d50, 0.5), 0, d.YF[4] - 0.02, (Zs[3] + Zs[5]) / 2);
 
   wheelGroups = car.wheels.map(() => makeWheel(car.def));

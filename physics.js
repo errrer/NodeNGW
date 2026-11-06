@@ -313,46 +313,46 @@ export class Car {
       panelDefs.push(Object.assign({ name, rows, cols, idx }, o));
     };
     const pm = d.pm;
-    const DOOR_H = [0.3, 0.65, 1.0], FEND_H = [0.2, 0.6, 1.0];
     const corners = (rows, cols, v) => (r, c) => ((r === 0 || r === rows - 1) && (c === 0 || c === cols - 1)) ? v : 0;
     const rim = (rows, cols, v) => (r, c) => (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) ? v : 0;
+    const RH = 5;                                                       // side panels: 5 rows of nodes from the floor edge to the beltline
     for (const sg of [1, -1]) {
       const L = sg > 0 ? 'L' : 'R';
       // side panels span the whole body side (floor edge to beltline) and meet edge to edge, with no gaps between them
-      const SH = [0, 0.5, 1.0];
-      const span = (name, f0, f1, cols, mass, att, yld, extra) => addPanel(name + L, 3, cols, (r, c) => edgeAt(f0 + (f1 - f0) * c / (cols - 1), 0, 1, SH[r], sg, 0.03), Object.assign({ mass: mass * pm, att, yld }, extra));
-      span('quarter', 0, 3.55, 5, 8, (r, c) => (c === 0 || c === 4 ? 0.7 : 0), 0.014);
-      span('door', 3.55, 7.5, 5, 16, (r, c) => (c === 4 ? 1.0 : c === 0 ? 0.65 : 0), 0.012, { hinge: (r, c) => c === 4, latch: (r, c) => c === 0 });
-      span('fender', 7.5, 11, 4, 8, (r, c) => (c === 0 || c === 3 ? 0.7 : 0), 0.014);
-      const spanUp = (name, f0, f1, cols, mass, att) => addPanel(name + L, 2, cols, (r, c) => edgeAt(f0 + (f1 - f0) * c / (cols - 1), 1, 2, r, sg, 0.03), { mass: mass * pm, att, yld: 0.014 });
-      spanUp('quarterTop', 0, 3.55, 5, 3, rim(2, 5, 0.6));
-      spanUp('fenderTop', 7.5, 11, 4, 3, rim(2, 4, 0.6));
-      addPanel('skirt' + L, 2, 6, (r, c) => edgeAt(3 + c, 0, 1, r === 0 ? 0 : 0.22, sg, 0.045), { mass: 3 * pm, att: (r, c) => (c === 0 || c === 5 ? 0.9 : (c === 2 || c === 3) && r === 0 ? 0.7 : 0), yld: 0.02 });
-      addPanel('window' + L, 2, 5, (r, c) => edgeAt(3 + c, 1, 2, r, sg, 0.02), { mass: 4 * pm, att: rim(2, 5, 0.5), yld: 0.5, glass: true });
+      const span = (name, f0, f1, cols, mass, att, yld, extra) => addPanel(name + L, RH, cols, (r, c) => edgeAt(f0 + (f1 - f0) * c / (cols - 1), 0, 1, r / (RH - 1), sg, 0.03), Object.assign({ mass: mass * pm, att, yld }, extra));
+      span('quarter', 0, 3.55, 9, 8, (r, c) => (c === 0 || c === 8 ? 0.7 : 0), 0.014);
+      span('door', 3.55, 7.5, 8, 16, (r, c) => (c === 7 ? 1.0 : c === 0 ? 0.9 : 0), 0.012, { hinge: (r, c) => c === 7, latch: (r, c) => c === 0 });
+      span('fender', 7.5, 11, 7, 8, (r, c) => (c === 0 || c === 6 ? 0.7 : 0), 0.014);
+      const spanUp = (name, f0, f1, cols, mass, att) => addPanel(name + L, 3, cols, (r, c) => edgeAt(f0 + (f1 - f0) * c / (cols - 1), 1, 2, r / 2, sg, 0.03), { mass: mass * pm, att, yld: 0.014 });
+      spanUp('quarterTop', 0, 3.55, 9, 3, rim(3, 9, 0.6));
+      spanUp('fenderTop', 7.5, 11, 7, 3, rim(3, 7, 0.6));
+      addPanel('skirt' + L, 2, 11, (r, c) => edgeAt(3 + c * 5 / 10, 0, 1, r === 0 ? 0 : 0.22, sg, 0.045), { mass: 3 * pm, att: (r, c) => (c === 0 || c === 10 ? 0.9 : (c === 4 || c === 5 || c === 6) && r === 0 ? 0.7 : 0), yld: 0.02 });
+      addPanel('window' + L, 3, 9, (r, c) => edgeAt(3 + c * 4 / 8, 1, 2, r / 2, sg, 0.02), { mass: 4 * pm, att: rim(3, 9, 0.5), yld: 0.5, glass: true });
     }
-    addPanel('hood', 3, 4, (r, c) => topAt(8 + c, r / 2, 0.03 + ((c === 1 || c === 2) ? 0.04 : 0)), { mass: 13 * pm, att: (r, c) => (c === 0 ? 1.0 : c === 3 ? 0.65 : r !== 1 ? 0.3 : 0), yld: 0.012, hinge: (r, c) => c === 0, latch: (r, c) => c === 3, lift: true });
-    if (!d.bed) addPanel('trunk', 3, 3, (r, c) => topAt(c * 1.25, r / 2, 0.03 + (c === 1 ? 0.04 : 0)), { mass: 9 * pm, att: (r, c) => (c === 2 ? 1.0 : c === 0 ? 0.65 : r !== 1 ? 0.3 : 0), yld: 0.012, hinge: (r, c) => c === 2, latch: (r, c) => c === 0, lift: true });
-    addPanel('roof', 3, 4, (r, c) => topAt(4 + c, r / 2, 0.03), { mass: 9 * pm, att: corners(3, 4, 0.9), yld: 0.012, col: d.look.roof ? 'accent' : undefined });
-    addPanel('windshield', 3, 3, (r, c) => topAt(7 + c * 0.5, r / 2, 0.02), { mass: 9 * pm, att: rim(3, 3, 0.5), yld: 0.5, glass: true });
+    const hoodCrown = (c, n) => 0.03 + 0.04 * Math.min(1, 1.25 * Math.sin(Math.PI * c / (n - 1)));
+    addPanel('hood', 5, 7, (r, c) => topAt(8 + c * 3 / 6, r / 4, hoodCrown(c, 7)), { mass: 13 * pm, att: (r, c) => (c === 0 ? 1.0 : c === 6 ? 0.9 : (r === 0 || r === 4) ? 0.3 : 0), yld: 0.012, hinge: (r, c) => c === 0, latch: (r, c) => c === 6, lift: true });
+    if (!d.bed) addPanel('trunk', 5, 5, (r, c) => topAt(c * 2.5 / 4, r / 4, hoodCrown(c, 5)), { mass: 9 * pm, att: (r, c) => (c === 4 ? 1.0 : c === 0 ? 0.9 : (r === 0 || r === 4) ? 0.3 : 0), yld: 0.012, hinge: (r, c) => c === 4, latch: (r, c) => c === 0, lift: true });
+    addPanel('roof', 4, 7, (r, c) => topAt(4 + c * 3 / 6, r / 3, 0.03), { mass: 9 * pm, att: corners(4, 7, 0.9), yld: 0.012, col: d.look.roof ? 'accent' : undefined });
+    addPanel('windshield', 4, 5, (r, c) => topAt(7 + c / 4, r / 3, 0.02), { mass: 9 * pm, att: rim(4, 5, 0.5), yld: 0.5, glass: true });
     const rg0 = d.bed ? 3 : 2.5;
-    addPanel('rearGlass', 3, 3, (r, c) => topAt(rg0 + c * (4 - rg0) / 2, r / 2, 0.02), { mass: 7 * pm, att: rim(3, 3, 0.5), yld: 0.5, glass: true });
+    addPanel('rearGlass', 4, 5, (r, c) => topAt(rg0 + c * (4 - rg0) / 4, r / 3, 0.02), { mass: 7 * pm, att: rim(4, 5, 0.5), yld: 0.5, glass: true });
     const bumper = (end, dir) => (r, c) => {
-      const x = (c / 4 * 2 - 1) * (WB[end] * 0.98), u = Math.abs(x) / WB[end];
+      const x = (c / 8 * 2 - 1) * (WB[end] * 0.98), u = Math.abs(x) / WB[end];
       const bb = Math.min(YF[end] - 0.07, 0.4);
-      return [x, bb + (r === 0 ? 0 : 0.22), Z[end] + dir * (0.07 - 0.2 * u * u)];
+      return [x, bb + r * 0.11, Z[end] + dir * (0.07 - 0.2 * u * u)];
     };
-    addPanel('bumperR', 2, 5, bumper(0, -1), { mass: 11 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 2, col: d.look.bumper });
-    addPanel('bumperF', 2, 5, bumper(11, 1), { mass: 12 * pm, att: (r, c) => (c === 0 || c === 4 ? 0.85 : c === 2 && r === 1 ? 0.6 : 0), yld: 0.02, anchorSt: 9, col: d.look.bumper });
+    addPanel('bumperR', 3, 9, bumper(0, -1), { mass: 11 * pm, att: (r, c) => (c === 0 || c === 8 ? 0.85 : (c === 3 || c === 4 || c === 5) && r === 2 ? 0.6 : 0), yld: 0.02, anchorSt: 2, col: d.look.bumper });
+    addPanel('bumperF', 3, 9, bumper(11, 1), { mass: 12 * pm, att: (r, c) => (c === 0 || c === 8 ? 0.85 : (c === 3 || c === 4 || c === 5) && r === 2 ? 0.6 : 0), yld: 0.02, anchorSt: 9, col: d.look.bumper });
 
     const fascia = (end, dir) => (r, c) => {
-      const y = lerp(Math.min(YF[end] + 0.12, 0.58), Math.max(YR[end] - 0.07, YF[end] + 0.5), r);
+      const y = lerp(Math.min(YF[end] + 0.12, 0.58), Math.max(YR[end] - 0.07, YF[end] + 0.5), r / 2);
       const t = Math.min(1, Math.max(0, (y - YB[end]) / Math.max(0.05, YR[end] - YB[end])));
       const hw = WB[end] + (WT[end] - WB[end]) * t - 0.01;             // follow the body outline: narrower above the beltline
-      return [(c / 4 * 2 - 1) * hw, y, Z[end] + dir * 0.04];
+      return [(c / 8 * 2 - 1) * hw, y, Z[end] + dir * 0.04];
     };
-    addPanel('grille', 2, 5, fascia(11, 1), { mass: 4 * pm, att: rim(2, 5, 0.6), yld: 0.02, anchorSt: 10, col: d.look.grille === 'dark' ? 'dark' : undefined });
-    addPanel('tailPanel', 2, 5, fascia(0, -1), { mass: 4 * pm, att: rim(2, 5, 0.6), yld: 0.02, anchorSt: 1 });
-    addPanel('underbody', 3, 5, (r, c) => { const { p, z } = rp(2 + c * 2), a = p[5], b = p[0]; return [lerp(a[0], b[0], r / 2), lerp(a[1], b[1], r / 2) - 0.04, z]; }, { mass: 6 * pm, att: (r, c) => ((r === 0 || r === 2) && (c === 0 || c === 4 || c === 2)) ? 0.7 : 0, yld: 0.02, col: 'dark' });
+    addPanel('grille', 3, 9, fascia(11, 1), { mass: 4 * pm, att: rim(3, 9, 0.6), yld: 0.02, anchorSt: 10, col: d.look.grille === 'dark' ? 'dark' : undefined });
+    addPanel('tailPanel', 3, 9, fascia(0, -1), { mass: 4 * pm, att: rim(3, 9, 0.6), yld: 0.02, anchorSt: 1 });
+    addPanel('underbody', 3, 7, (r, c) => { const { p, z } = rp(2 + c * 8 / 6), a = p[5], b = p[0]; return [lerp(a[0], b[0], r / 2), lerp(a[1], b[1], r / 2) - 0.04, z]; }, { mass: 6 * pm, att: (r, c) => ((r === 0 || r === 2) && (c === 0 || c === 6 || c === 3)) ? 0.7 : 0, yld: 0.02, col: 'dark' });
 
     // deformable engine: 4 layers (sump, block base, block top, head) of 4 nodes each, linked by yielding beams
     const ex = 0, ey = (YF[10] + YB[10]) / 2 + 0.05, ez = (Z[9] + Z[10]) / 2;
@@ -364,7 +364,7 @@ export class Car {
 
     const NN = this.NN = NX.length;
     let panelMass = 0;
-    for (const p of panelDefs) { p.nodeMass = Math.max(1, p.mass / (p.rows * p.cols)); for (const r of p.idx) for (const i of r) panelMass += p.nodeMass; }
+    for (const p of panelDefs) { p.nodeMass = Math.max(0.2, p.mass / (p.rows * p.cols)); for (const r of p.idx) for (const i of r) panelMass += p.nodeMass; }
     {   // panels may weigh at most what is left after the frame nodes get a sensible minimum mass
       const room = d.mass - d.mEng - d.mFuel - 4 * d.mWheel - 2.2 * (NR + NSTA), f = Math.min(1, room / panelMass);
       panelMass = 0;
@@ -473,14 +473,14 @@ export class Car {
         // soft backing spring to the centre-line spine: gives every panel node real support normal to the surface
         // (so panels can't sag like cloth), dents plastically, and snaps when the panel is pulled off
         const ac = ancOf(p, i), wb = Math.min(140, 200 * Math.sqrt(m[ac] / ancMass[ac]));
-        const qb = addW(i, ac, wb, 1.0, 0.06, 0.15, 0, 2); back.push(qb); if (p.hinge && !isHinge) relBack.push(qb);
+        const qb = addW(i, ac, wb, 1.0, 0.06, 0.22, 0, 2); back.push(qb); if (p.hinge && !isHinge) relBack.push(qb);
         // one-sided stand-off: the part may move away from the body but can never be pushed through it (no collision with other parts, just a floor)
         this.bumps.push({ a: i, b: ac, minL: 0.72 * Math.hypot(lx[i] - lx[ac], ly[i] - ly[ac], lz[i] - lz[ac]) });
         if (p.lift) this.bumps.push({ a: i, b: ENG, minL: 0.8 * Math.hypot(lx[i] - lx[ENG], ly[i] - ly[ENG], lz[i] - lz[ENG]) });
         const strength = p.att(r, c);
         if (strength > 0) {
           for (const j of nearestRing(i, strength >= 0.65 ? 3 : 2)) {
-            const qt = addW(i, j, 140 * strength, 0.8, 0.03, 0.06 + 0.12 * strength, 0, 2); tang.push(qt);
+            const qt = addW(i, j, 140 * strength, 0.8, 0.03, 0.09 + 0.18 * strength, 0, 2); tang.push(qt);
             if (isHinge) hingeTang.push(qt); else if (isLatch) latchTang.push(qt); else relTang.push(qt);
           }
         }
@@ -498,7 +498,7 @@ export class Car {
         }
       }
       this.panels.push({ name: p.name, nodes, attach: back.concat(tang), tang, back, grid, glass: !!p.glass, rows: p.rows, cols: p.cols, gone: false, lost: false, crack: 0, deb: null, hingeTang, latchTang, relTang, relBack, hinged: !!p.hinge, released: false, lift: !!p.lift,
-        buckle: p.lift ? { a: p.idx[1][0], b: p.idx[1][p.cols - 1], mids: p.idx.flatMap((row) => row.slice(1, p.cols - 1)), rest: Math.hypot(lx[p.idx[1][0]] - lx[p.idx[1][p.cols - 1]], ly[p.idx[1][0]] - ly[p.idx[1][p.cols - 1]], lz[p.idx[1][0]] - lz[p.idx[1][p.cols - 1]]) } : null });
+        buckle: p.lift ? (() => { const mr = p.rows >> 1, A = p.idx[mr][0], B = p.idx[mr][p.cols - 1]; return { a: A, b: B, mids: p.idx.flatMap((row) => row.slice(1, p.cols - 1)), rest: Math.hypot(lx[A] - lx[B], ly[A] - ly[B], lz[A] - lz[B]) }; })() : null });
     }
     // engine block beams: stiff cast iron that still yields and cracks when the frame is driven into it
     for (let L = 0; L < 4; L++) for (let c = 0; c < 4; c++) {
@@ -543,7 +543,7 @@ export class Car {
       if (f.panel !== undefined) continue;
       for (let k = 0; k < 4; k++) {
         const a = f.q[k], b = f.q[(k + 1) % 4];
-        const key2 = Math.min(a, b) * 1000 + Math.max(a, b);
+        const key2 = Math.min(a, b) * 4096 + Math.max(a, b);
         if (seen.has(key2)) continue; seen.add(key2);
         cpA.push(a); cpB.push(b); cpT.push(0.5); cpS.push(kcOf(a));
       }
@@ -1080,7 +1080,7 @@ export class Car {
       const bk = p.buckle; if (!bk || p.gone) continue;
       const L = Math.hypot(px[bk.a] - px[bk.b], py[bk.a] - py[bk.b], pz[bk.a] - pz[bk.b]), comp = 1 - L / bk.rest;
       if (comp > 0.03) {
-        if (comp > 0.1 && !p.released) p.popped = true;
+        if (comp > 0.16 && !p.released) p.popped = true;
         const f = Math.min(450, 3000 * (comp - 0.03)) / bk.mids.length, u = this.up;
         const hx = (px[bk.a] + px[bk.b]) * 0.5, hy = (py[bk.a] + py[bk.b]) * 0.5, hz = (pz[bk.a] + pz[bk.b]) * 0.5;
         for (const i of bk.mids) {   // only lifts the crumpling sheet a little: once it stands well above its ends it folds under its own weight

@@ -351,7 +351,8 @@ function buildCar(key) {
   details = [];
   {   // body details that ride on the panels (so they fall off with them)
     const pan = (name) => car.panels.find((p) => p.name === name);
-    const addDet = (pname, r, c, off, mesh) => { const p = pan(pname); if (!p) return; mesh.frustumCulled = false; scene.add(mesh); details.push({ mesh, n: p.nodes[r * p.cols + c], off }); };
+    // r, c are the original coarse-grid coordinates (rows 0-2, columns 0-4); mapped onto the finer grid by fraction
+    const addDet = (pname, r, c, off, mesh) => { const p = pan(pname); if (!p) return; const oc = (pname.startsWith('door') ? 4 : 4), orows = (pname === 'grille' || pname === 'tailPanel') ? 1 : 2; const rr = Math.round(r / orows * (p.rows - 1)), cc = Math.round(c / oc * (p.cols - 1)); mesh.frustumCulled = false; scene.add(mesh); details.push({ mesh, n: p.nodes[rr * p.cols + cc], off }); };
     const bxm = (w, h, l, mat) => new THREE.Mesh(new THREE.BoxGeometry(w, h, l), mat);
     const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff2c8 }), plateMat = new THREE.MeshStandardMaterial({ color: 0xf2f2f0, roughness: 0.6 });
     const chromeMat = new THREE.MeshStandardMaterial({ color: 0xc8ccd0, metalness: 0.9, roughness: 0.25 }), paintMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(...paint), roughness: 0.38, metalness: 0.4 });

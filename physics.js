@@ -157,7 +157,7 @@ export const VEHICLES = {
     Z: [-2.25, -2.05, -1.65, -1.25, -0.85, -0.45, -0.05, 0.35, 0.75, 1.2, 1.7, 2.25],
     YF: [0.48, 0.44, 0.42, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40, 0.41, 0.43, 0.46],
     YB: [0.72, 0.78, 0.80, 0.82, 0.84, 0.84, 0.84, 0.84, 0.82, 0.80, 0.78, 0.66],
-    YR: [0.85, 0.94, 0.98, 1.12, 1.42, 1.46, 1.45, 1.38, 0.98, 0.95, 0.92, 0.80],
+    YR: [0.86, 0.95, 0.99, 1.04, 1.3, 1.45, 1.47, 1.37, 1.1, 0.98, 0.94, 0.82],
     WB: [0.78, 0.84, 0.88, 0.88, 0.88, 0.88, 0.88, 0.88, 0.88, 0.87, 0.84, 0.78],
     WT: [0.68, 0.72, 0.75, 0.70, 0.66, 0.66, 0.66, 0.68, 0.78, 0.78, 0.76, 0.68],
     YS: [0.005, 0.0055, 0.007, 0.012, 0.015, 0.016, 0.015, 0.011, 0.008, 0.006, 0.0055, 0.005],
@@ -204,14 +204,14 @@ export const VEHICLES = {
   const S = VEHICLES.sedan, P = VEHICLES.pickup, mk = (o) => Object.assign({}, S, o), sc = (a, k) => a.map((v) => v * k), add = (a, k) => a.map((v) => v + k);
   VEHICLES.hatch = mk({
     name: 'Hatchback', tyreW: 0.21, rim: 0.7, blurb: 'Small, front-wheel drive, agile',
-    Z: sc(S.Z, 0.82), YB: add(S.YB, -0.02), YR: [1.24, 1.34, 1.4, 1.43, 1.45, 1.46, 1.45, 1.38, 0.98, 0.95, 0.92, 0.82], WB: sc(S.WB, 0.96), WT: sc(S.WT, 1.03),
+    Z: sc(S.Z, 0.82), YB: add(S.YB, -0.02), YR: [1.24, 1.34, 1.4, 1.43, 1.45, 1.46, 1.44, 1.34, 1.06, 0.97, 0.93, 0.82], WB: sc(S.WB, 0.96), WT: sc(S.WT, 1.03),
     WF: 0.72, WX: 1.0, WR: 0.32, axF: 1.19, axR: -1.11, EA: 3.8e5, mass: 1050, mEng: 120, mFuel: 40, mWheel: 30, pm: 0.9,
     rideF: 1.45, rideR: 1.65, torque: 160, final: 4.1, drive: 'fwd', grip: 1.25, drag: 0.016, brake: 4200,
     look: { bumper: 'paint', grille: 'paint', lamp: 'slim', face: 'intake', color: 'blue', doors: 4, rearKind: 'hatch', rearOnTail: true, winRear: [1.5, 1.2], sill: 'dark' },
   });
   VEHICLES.suv = mk({
     name: 'SUV', tyreW: 0.29, rim: 0.58, blurb: 'Tall, tough, all-wheel drive',
-    Z: sc(S.Z, 1.02), YF: add(S.YF, 0.14), YB: add(S.YB, 0.2), YR: [1.62, 1.76, 1.8, 1.82, 1.84, 1.84, 1.82, 1.7, 1.16, 1.1, 1.04, 0.92],
+    Z: sc(S.Z, 1.02), YF: add(S.YF, 0.14), YB: add(S.YB, 0.2), YR: [1.62, 1.76, 1.8, 1.82, 1.84, 1.84, 1.82, 1.7, 1.22, 1.19, 1.16, 1.1],
     WB: sc(S.WB, 1.05), WT: [0.9, 0.92, 0.94, 0.92, 0.9, 0.9, 0.9, 0.9, 0.92, 0.92, 0.9, 0.84], YS: P.YS,
     WF: 0.8, WX: 1.08, WR: 0.4, axF: 1.5, axR: -1.4, EA: 6.0e5, mass: 1950, mEng: 220, mFuel: 70, mWheel: 48, pm: 1.3,
     rideF: 1.25, rideR: 1.2, travelUp: 0.14, travelDown: 0.18, torque: 300, final: 4.0, drive: 'awd', grip: 1.1, drag: 0.03, brake: 6000,
@@ -228,7 +228,7 @@ export const VEHICLES = {
   VEHICLES.van = mk({
     name: 'Van', tyreW: 0.27, rim: 0.55, blurb: 'Big box, slow, lots to break',
     Z: [-2.6, -2.35, -1.9, -1.4, -0.9, -0.4, 0.1, 0.55, 0.95, 1.35, 1.9, 2.4],
-    YF: P.YF, YB: [1.1, 1.15, 1.15, 1.15, 1.15, 1.15, 1.15, 1.1, 1.0, 0.95, 0.9, 0.85], YR: [2.1, 2.15, 2.15, 2.15, 2.15, 2.15, 2.1, 2.0, 1.42, 1.34, 1.24, 1.12],
+    YF: P.YF, YB: [1.1, 1.15, 1.15, 1.15, 1.15, 1.15, 1.15, 1.1, 1.0, 0.95, 0.9, 0.85], YR: [2.1, 2.15, 2.15, 2.15, 2.15, 2.15, 2.1, 2.0, 1.4, 1.37, 1.32, 1.26],
     WB: sc(P.WB, 0.99), WT: [0.93, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.94, 0.9, 0.9, 0.88, 0.84], YS: P.YS,
     WF: 0.85, WX: 1.1, WR: 0.4, axF: 1.6, axR: -1.7, EA: 6.5e5, mass: 2300, mEng: 200, mFuel: 75, mWheel: 50, pm: 1.5,
     rideF: 1.15, rideR: 1.0, travelUp: 0.14, travelDown: 0.18, torque: 290, final: 4.3, drive: 'rwd', grip: 1.05, drag: 0.04, brake: 6200,
@@ -236,7 +236,7 @@ export const VEHICLES = {
   });
   VEHICLES.mini = mk({
     name: 'Mini', tyreW: 0.18, rim: 0.62, blurb: 'Tiny and fragile, front-wheel drive',
-    Z: sc(S.Z, 0.72), YB: add(S.YB, -0.05), YR: [1.06, 1.14, 1.2, 1.26, 1.3, 1.32, 1.3, 1.26, 0.98, 0.95, 0.92, 0.84], WB: sc(S.WB, 0.97), WT: [0.74, 0.78, 0.8, 0.78, 0.76, 0.76, 0.76, 0.78, 0.8, 0.8, 0.78, 0.72],
+    Z: sc(S.Z, 0.72), YB: add(S.YB, -0.05), YR: [1.06, 1.14, 1.2, 1.26, 1.3, 1.32, 1.3, 1.22, 1.04, 0.96, 0.92, 0.84], WB: sc(S.WB, 0.97), WT: [0.74, 0.78, 0.8, 0.78, 0.76, 0.76, 0.76, 0.78, 0.8, 0.8, 0.78, 0.72],
     WF: 0.68, WX: 0.94, WR: 0.28, axF: 1.04, axR: -0.97, EA: 2.8e5, mass: 750, mEng: 80, mFuel: 30, mWheel: 22, pm: 0.7,
     rideF: 1.5, rideR: 1.7, travelUp: 0.09, travelDown: 0.11, torque: 105, final: 4.3, drive: 'fwd', grip: 1.2, drag: 0.012, brake: 3600,
     look: { bumper: 'paint', grille: 'dark', lamp: 'round', face: 'mini', color: 'red', doors: 2, rearKind: 'hatch', rearOnTail: true, winRear: [4.0, 3.2], roofCol: '#eeeef1', stripeSt: [[8.2, 11.2]], stripeX: 0.1, stripeCol: '#eeeef1', doorRear: 4.4, flare: 0.05, arch: 0.07 },

@@ -177,6 +177,7 @@ const skids = new Skids(scene);
 
 // ------------------------------------------------------------ car visuals
 let car, body, bodyGeo, bodyMat, nodeKind, baseCol, wheelGroups = [], lines, lineGeo;
+const SMOOTH = new URLSearchParams(location.search).get('smooth') === '1';
 let shell = null, ribbons = [], details = [], faceRecs = [], bodyIdxAttr, glassIdxAttr, lastBroken = -1;
 let engineMesh, engineNodes = [], glassMesh, tintMesh, glassGeo, glassPanels = [], frameMesh, frameBeams = [], interior = [];
 let headMeshes = [], tailMeshes = [], headLights = [];
@@ -412,11 +413,13 @@ function buildCar(key) {
   }
 
   // the smooth textured shell replaces the blocky panel mesh; only the door mirrors stay as separate parts
-  shell = new Shell(car, paint, crackTexture(), scene);
-  body.visible = false; tintMesh.visible = false; glassMesh.visible = false;
-  details = details.filter((dd) => { if (dd.keep) return true; scene.remove(dd.mesh); return false; });
-  for (const r of ribbons) scene.remove(r.mesh);
-  ribbons = [];
+  if (SMOOTH) {   // optional smooth skinned shell (?smooth=1); the default is the classic panel-built bodywork
+    shell = new Shell(car, paint, crackTexture(), scene);
+    body.visible = false; tintMesh.visible = false; glassMesh.visible = false;
+    details = details.filter((dd) => { if (dd.keep) return true; scene.remove(dd.mesh); return false; });
+    for (const r of ribbons) scene.remove(r.mesh);
+    ribbons = [];
+  }
 
   headLights = [0, 1].map(() => {
     const l = new THREE.SpotLight(0xfff2d0, 0, 70, 0.55, 0.5, 1.2); scene.add(l); scene.add(l.target); return l;
@@ -944,7 +947,7 @@ el('drive').onclick = () => {
 setTimeout(() => setMouseCam(true), 0);
 const camPos = new THREE.Vector3(0, 6, -12), camLook = new THREE.Vector3();
 
-window.__shell = () => shell;
+window.__shell = () => shell; window.__dbg = () => ({ car, scene, wheelGroups });
 let shotCam = null; window.__shot = (p, t) => { shotCam = p ? { p, t } : null; };   // debug hook for screenshots
 function updateCamera(dt) {
   if (shotCam) { const c0 = car.com; camera.position.set(c0[0] + shotCam.p[0], c0[1] + shotCam.p[1], c0[2] + shotCam.p[2]); camera.lookAt(c0[0] + shotCam.t[0], c0[1] + shotCam.t[1], c0[2] + shotCam.t[2]); return; }

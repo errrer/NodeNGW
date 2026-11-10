@@ -755,7 +755,7 @@ export class Car {
       if (p.gone) continue;
       if (p.glass) {
         let mx = 0; for (const q of p.grid) { const a = Math.abs(this.strain[q]); if (a > mx) mx = a; }
-        p.crack = Math.max(p.crack, Math.min(1, mx / 0.04));
+        p.crack = Math.max(p.crack, Math.min(1, mx / 0.08));
       }
       let ti = 0, bi = 0;
       for (const q of p.tang) if (!this.broken[q]) ti++;
